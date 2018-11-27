@@ -7,7 +7,15 @@ Implements an LLVM analysis pass using abstract interpretation.
 Get the LLVM source code from [here](http://releases.llvm.org/download.html). Then get clang as well, into `llvm/tools`. Create a build directory somewhere, initialise CMake, and build. For example
 
     # From your llvm-7.0.0-src, or whatever the version is now
-    cd ..
+    wget http://releases.llvm.org/7.0.0/llvm-7.0.0.src.tar.xz
+    tar xf llvm-7.0.0.src.tar.xz
+    # now also download clang
+    cd llvm-7.0.0.src/tools
+    wget http://releases.llvm.org/7.0.0/cfe-7.0.0.src.tar.xz
+    tar xf cfe-7.0.0.src.tar.xz
+    mv cfe-7.0.0.src clang
+    cd ../..
+    # now continue by building LLVM
     mkdir llvm_build
     cd llvm_build
     cmake ../llvm-?.?.?-src -DLLVM_TARGETS_TO_BUILD=X86
