@@ -10,7 +10,9 @@ if(WIN32 OR CYGWIN)
   set(LLVM_LINK_COMPONENTS Core Support)
 endif()
 
-add_llvm_loadable_module( llvm-pain
+# For older LLVM < 8.0 replace first line with this
+# add_llvm_loadable_module(llvm-pain
+add_llvm_library(llvm-pain MODULE
   src/fixpoint.cpp
   src/fixpoint.h
   src/value_set.cpp

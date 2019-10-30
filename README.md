@@ -6,22 +6,22 @@ Implements an LLVM analysis pass using abstract interpretation.
 
 Get the LLVM source code from [here](http://releases.llvm.org/download.html). Then get clang as well, into `llvm/tools`. Create a build directory somewhere, initialise CMake, and build. For example
 
-    # From your llvm-7.0.0-src, or whatever the version is now
-    wget http://releases.llvm.org/7.0.0/llvm-7.0.0.src.tar.xz
-    tar xf llvm-7.0.0.src.tar.xz
+    # From your llvm-9.0.0-src, or whatever the version is now
+    wget http://releases.llvm.org/9.0.0/llvm-9.0.0.src.tar.xz
+    tar xf llvm-9.0.0.src.tar.xz
     # now also download clang
-    cd llvm-7.0.0.src/tools
-    wget http://releases.llvm.org/7.0.0/cfe-7.0.0.src.tar.xz
-    tar xf cfe-7.0.0.src.tar.xz
-    mv cfe-7.0.0.src clang
+    cd llvm-9.0.0.src/tools
+    wget http://releases.llvm.org/9.0.0/cfe-9.0.0.src.tar.xz
+    tar xf cfe-9.0.0.src.tar.xz
+    mv cfe-9.0.0.src clang
     cd ../..
     # now continue by building LLVM
     mkdir llvm_build
     cd llvm_build
     cmake ../llvm-?.?.?-src -DLLVM_TARGETS_TO_BUILD=X86
     make -j2
-    
-The parallel make may run out of memory at the end. You can restart it sequentially by issuing another `make`.
+
+The parallel make may run out of memory at the end. You can restart it sequentially by issuing another `make -j1`.
 
 Now we can initalise the repository.
 
@@ -29,13 +29,13 @@ Now we can initalise the repository.
     git clone ssh://git@github.com/PUT/THE/CORRECT/REPOSITORY/IN/HERE.git
     cd PUT/THE/CORRECT/REPOSITORY/IN/HERE
     python3 init.py
-    
+
 The script should be able to find your LLVM and clang. If it is not, you need to specify them by hand.
 
 At last, let us compile and run the samples.
 
     python3 run.py --make
-    
+
 If there are errors regarding missing header files, you probably need to rebuild llvm.
 
 ## Useful things
@@ -55,4 +55,3 @@ The `run.py` script contains everything, up to and including the kitchen sink. I
 * Peter Munch
 * Alexander Roschlaub
 * Michael B. Schwarz
-
