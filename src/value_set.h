@@ -10,6 +10,7 @@
 #include "llvm/IR/Instructions.h"
 
 #include "global.h"
+#include "callstring.h"
 
 namespace pcpo {
 
@@ -98,6 +99,7 @@ public:
 
         // Go through each instruction of the basic block and apply it to the state
         for (llvm::Instruction const& inst: bb) {
+
             // If the result of the instruction is not used, there is no reason to compute
             // it. (There are no side-effects in LLVM IR. (I hope.))
             if (inst.use_empty()) continue;
@@ -121,7 +123,11 @@ public:
 
                     operands.push_back(pred_value); // Keep the debug output happy
                 }
-            } else {
+			}
+			else if (llvm::CallInst const* call = llvm::dyn_cast<llvm::CallInst>(&inst)) {
+				InterpretCall(call, operands);
+			}
+			else {
                 for (llvm::Value const* value: inst.operand_values()) {
                     operands.push_back(getAbstractValue(*value));
                 }

@@ -9,6 +9,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 
 #include "global.h"
+#include "callstring.h"
 #include "fixpoint_widening.cpp"
 #include "value_set.h"
 #include "simple_interval.h"

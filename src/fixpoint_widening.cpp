@@ -8,6 +8,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 
 #include "global.h"
+#include "callstring.h"
 #include "value_set.h"
 #include "simple_interval.h"
 
@@ -62,6 +63,7 @@ void executeFixpointAlgorithmWidening(llvm::Module& M) {
             dbgs(1) << "  Function " << f.getName() << " is external, skipping...";
             continue;
         }
+		if (f.getName() != "main") continue;
 
         // Register basic blocks
         for (llvm::BasicBlock& bb: f) {
