@@ -1,7 +1,7 @@
-int test() {
-    int a = 1; a++; // a={2}
-    int b = 2; b++; // b={3}
-    int c;
+int main() {
+    float a = 1; a++; // a={2}
+    float b = 2; b++; // b={3}
+    float c;
     c += 1;         // c=T
     
     if(c == a){     // c=a={2}
@@ -10,10 +10,5 @@ int test() {
     }
     
                     // a={2,3}
-    return a + b;   // ret={5,6}
-}
-
-int main() {
-    int x = test();
-    return 0;
+    return 0;   // ret={5,6}
 }

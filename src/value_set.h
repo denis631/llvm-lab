@@ -8,6 +8,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include "global.h"
 #include "callstring.h"
@@ -89,69 +90,163 @@ public:
         isBottom = false;
     }
 
-    void apply(llvm::BasicBlock const& bb, std::vector<AbstractStateValueSet> const& pred_values) {
-        if (isBottom) {
-            dbgs(3) << "    Basic block is unreachable, everything is bottom\n";
-            return;
+    // This constructor is used to initialize the state of a function call, to which parameters are passed.
+    // This is the "enter" function as described in "Compiler Design: Analysis and Transformation"
+    explicit AbstractStateValueSet(llvm::Function const* callee_func, AbstractStateValueSet const& state,
+                                   llvm::CallInst const* call) {
+        assert(callee_func->arg_size() == call->getNumArgOperands());
+        for (llvm::Argument const& arg: callee_func->args()) {
+            llvm::Value* value = call->getArgOperand(arg.getArgNo());
+            if (value->getType()->isIntegerTy()) {
+                if (llvm::Constant const* c = llvm::dyn_cast<llvm::Constant>(value)) {
+                    values[&arg] = AbstractDomain {*c};
+                } else {
+                    values[&arg] = state.values.at(value);
+                }
+            } else {
+                values[&arg] = AbstractDomain {true};
+            }
+        }
+        isBottom = false;
+    }
+
+    // Handles the evaluation of merging points
+    void applyPHINode(llvm::BasicBlock const& bb, std::vector<AbstractStateValueSet> const& pred_values,
+                      llvm::Instruction const& inst) {
+        std::vector<AbstractDomain> operands;
+        AbstractDomain inst_result;
+
+        llvm::PHINode const* phi = llvm::dyn_cast<llvm::PHINode>(&inst);
+
+        // Phi nodes are handled here, to get the precise values of the predecessors
+        
+        for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
+            // Find the predecessor corresponding to the block of the phi node
+            unsigned block = 0;
+            for (llvm::BasicBlock const* pred_bb: llvm::predecessors(&bb)) {
+                if (pred_bb == phi->getIncomingBlock(i)) break;
+                ++block;
+            }
+
+            // Take the union of the values
+            AbstractDomain pred_value = pred_values[block].getAbstractValue(*phi->getIncomingValue(i));
+            inst_result = AbstractDomain::merge(Merge_op::UPPER_BOUND, inst_result, pred_value);
+
+            operands.push_back(pred_value); // Keep the debug output happy
         }
         
+        values[&inst] = inst_result;
+
+        debug_output(inst, operands);
+    }
+
+    // Handles the evaluation of function calls
+    // This is the "combine" function as described in "Compiler Design: Analysis and Transformation"
+    void applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block,
+                       AbstractStateValueSet const& callee_state) {
         std::vector<AbstractDomain> operands;
 
-        // Go through each instruction of the basic block and apply it to the state
-        for (llvm::Instruction const& inst: bb) {
+        // Keep the debug output happy
+        for (llvm::Value const* value : inst.operand_values()) {
+            operands.push_back(getAbstractValue(*value));
+        }
 
-            // If the result of the instruction is not used, there is no reason to compute
-            // it. (There are no side-effects in LLVM IR. (I hope.))
-            if (inst.use_empty()) continue;
+        //iterate through all instructions of it till we find a return statement
+        for (llvm::Instruction const& iter_inst: *end_block) {
+            if (llvm::ReturnInst const* ret_inst = llvm::dyn_cast<llvm::ReturnInst>(&iter_inst)) {
+                llvm::Value const* ret_val = ret_inst->getReturnValue();
+                dbgs(4) << "      Found return instruction\n";
 
-            AbstractDomain inst_result;
-            
-            if (llvm::PHINode const* phi = llvm::dyn_cast<llvm::PHINode>(&inst)) {
-                // Phi nodes are handled here, to get the precise values of the predecessors
-                
-                for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
-                    // Find the predecessor corresponding to the block of the phi node
-                    unsigned block = 0;
-                    for (llvm::BasicBlock const* pred_bb: llvm::predecessors(&bb)) {
-                        if (pred_bb == phi->getIncomingBlock(i)) break;
-                        ++block;
-                    }
-
-                    // Take the union of the values
-                    AbstractDomain pred_value = pred_values[block].getAbstractValue(*phi->getIncomingValue(i));
-                    inst_result = AbstractDomain::merge(Merge_op::UPPER_BOUND, inst_result, pred_value);
-
-                    operands.push_back(pred_value); // Keep the debug output happy
+                if (callee_state.values.find(ret_val) != callee_state.values.end()) {
+                    dbgs(4) << "      Return evaluated, merging parameters\n";
+                    values[&inst] = callee_state.values.at(ret_val);
+                } else {
+                    dbgs(4) << "      Return not evaluated, setting to bottom\n";
+                    values[&inst] = AbstractDomain{}; // Initializes the return value to Bottom
                 }
-			}
-			else if (llvm::CallInst const* call = llvm::dyn_cast<llvm::CallInst>(&inst)) {
-				InterpretCall(call, operands);
-			}
-			else {
-                for (llvm::Value const* value: inst.operand_values()) {
-                    operands.push_back(getAbstractValue(*value));
-                }
-
-                // Compute the result of the operation
-                inst_result = AbstractDomain::interpret(inst, operands);
             }
-            
-            values[&inst] = inst_result;
+        }
+        
+        debug_output(inst, operands);
+    }
 
-            dbgs(3).indent(2) << inst << " // " << values.at(&inst) << ", args ";
-            {int i = 0;
-            for (llvm::Value const* value: inst.operand_values()) {
-                if (i) dbgs(3) << ", ";
-                if (value->getName().size()) dbgs(3) << '%' << value->getName() << " = ";
-                dbgs(3) << operands[i];
-                ++i;
-            }}
-            dbgs(3) << '\n';
-
-            operands.clear();
+    // Handles the evaluation of return instructions
+    void applyReturnInst(llvm::Instruction const& inst) {
+        llvm::Value const* ret_val = llvm::dyn_cast<llvm::ReturnInst>(&inst)->getReturnValue();
+        if (ret_val->getType()->isIntegerTy()) {
+            if (llvm::Constant const* c = llvm::dyn_cast<llvm::Constant>(ret_val)) {
+                values[&inst] = AbstractDomain{ *c };
+            } else if (values.find(ret_val) != values.end()) {
+                values[&inst] = values.at(ret_val);
+            } else {
+                values[&inst] = AbstractDomain{}; // Initializes the return value to Bottom
+            }
+        } else {
+            values[&inst] = AbstractDomain{ true };
         }
     }
-    
+
+    // Handles the evaluation of all other instructions
+    void applyDefault(llvm::Instruction const& inst) {
+        std::vector<AbstractDomain> operands;
+
+        for (llvm::Value const* value: inst.operand_values()) {
+            operands.push_back(getAbstractValue(*value));
+        }
+
+        // Compute the result of the operation
+        values[&inst] = AbstractDomain::interpret(inst, operands);
+
+        debug_output(inst, operands);
+    }
+
+    // Used for debug output
+    void debug_output(llvm::Instruction const& inst, std::vector<AbstractDomain> operands) {
+        dbgs(3).indent(2) << inst << " // " << values.at(&inst) << ", args ";
+        {int i = 0;
+        for (llvm::Value const* value: inst.operand_values()) {
+            if (i) dbgs(3) << ", ";
+            if (value->getName().size()) dbgs(3) << '%' << value->getName() << " = ";
+            dbgs(3) << operands[i];
+            ++i;
+        }}
+        dbgs(3) << '\n';
+    }
+
+	// Checks whether at least one of the operands is bottom -- in such a case we
+	// set the result to bottom as well
+	bool checkOperandsForBottom(llvm::Instruction const& inst) {
+		std::vector<AbstractDomain> operands;
+
+		for (llvm::Value const* value : inst.operand_values()) {
+			operands.push_back(getAbstractValue(*value));
+		}
+
+		for (llvm::Value const* value : inst.operand_values())
+			if (llvm::Constant const* c = llvm::dyn_cast<llvm::Constant>(value)) {
+
+			} else
+				if (values[value].isBottom()) {
+					values[&inst] = AbstractDomain{};
+
+					dbgs(3).indent(2) << inst << " // " << values.at(&inst) << ", args ";
+					{int i = 0;
+					for (llvm::Value const* value : inst.operand_values()) {
+						if (i) dbgs(3) << ", ";
+						if (value->getName().size()) dbgs(3) << '%' << value->getName() << " = ";
+						dbgs(3) << operands[i];
+						++i;
+					}}
+					dbgs(3) << '\n';
+
+					operands.clear();
+
+					return true;
+				}
+		return false;
+	}
+
+ 
     bool merge(Merge_op::Type op, AbstractStateValueSet const& other) {
         bool changed = false;
 
@@ -174,10 +269,10 @@ public:
                 
             values[i.first] = v;
             changed = true;
-
+			if (checkValueForBottom(4, i.first)) return changed;
         }
 
-        if (changed) checkForBottom(4);
+        //if (changed) checkForBottom(4);
         
         return changed;
     }
@@ -253,17 +348,24 @@ public:
         if (values.count(&lhs) && values.count(&rhs)) {
             dbgs(3) << "      Values restricted to %" << lhs.getName() << " = " << values[&lhs] << " and %"
                     << rhs.getName() << " = " << values[&rhs] << '\n';
+			if (!checkValueForBottom(6, &lhs)) checkValueForBottom(6, &rhs);
         } else if (values.count(&lhs)) {
             dbgs(3) << "      Value restricted to %" << lhs.getName() << " = " << values[&lhs]  << '\n';
+			checkValueForBottom(6, &lhs);
         } else if (values.count(&rhs)) {
             dbgs(3) << "      Value restricted to %" << rhs.getName() << " = " << values[&rhs]  << '\n';
+			checkValueForBottom(6, &rhs);
         } else {
             dbgs(3) << "      No restrictions were derived.\n";
         }
 
         // This cannot happen when doing UPPER_BOUND or WIDEN, but for NARROW it is possible, so
         // check just in case.
-        checkForBottom(6);
+
+		//This was created before interprocedural analysis was added, therefore it might work wrong
+		//Perhaps, one should check each value for bottom separately, see bool checkValueForBottom()
+        //if (!checkValueForBottom(6, &lhs)) checkValueForBottom(6, &rhs);
+		//checkForBottom(4);
     }
 
     void printIncoming(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {
@@ -290,9 +392,15 @@ public:
     }
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {
         for (auto const& i: values) {
-            out.indent(indentation) << '%' << i.first->getName() << " = " << i.second << '\n';
+            if (llvm::ReturnInst::classof(i.first)) {
+                out.indent(indentation) << "<ret> = " << i.second << '\n';
+            } else {
+                out.indent(indentation) << '%' << i.first->getName() << " = " << i.second << '\n';
+            }
         }
-        if (values.size() == 0) {
+        if (isBottom) {
+            out.indent(indentation) << "bottom\n";
+        } else if (values.size() == 0) {
             out.indent(indentation) << "<nothing>\n";
         }
     };
@@ -314,6 +422,10 @@ public:
 
     // If any of our values is bottom, then we are bottom as well. So this function checks that and
     // normalises our value. Returns whether this changed our value (i.e. we are now bottom).
+
+	// Actually the statement above is correct if we have only one function. If not, then we can
+	// have values that are bottom but do not belong to the current function => the function
+	// is not bottom. Use bool checkValueForBottom() if you want to check the values separately.
     bool checkForBottom(int indent = 0) {
         if (isBottom) return false;
 
@@ -329,6 +441,21 @@ public:
         }
         return false;
     }
+
+	// For a specific value checks whether it is a bottom. See bool checkForBottom for more
+	// information
+	bool checkValueForBottom(int indent, llvm::Value const* value) {
+		if (isBottom) return false;
+		if (values[value] == AbstractDomain{}) {
+			dbgs(3).indent(indent) << "Variable %" << value->getName() << " is bottom, so the state is as well.\n";
+			
+			values.clear();
+			isBottom = true;
+
+			return true;
+		}
+		return false;
+	}
 };
 
 } /* end of namespace pcpo */
