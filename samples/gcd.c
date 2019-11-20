@@ -11,3 +11,8 @@ int gcd() {
     // expected solution 89
     return a;
 }
+
+int main() {
+    int x = gcd();
+    return x;
+}

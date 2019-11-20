@@ -3,25 +3,27 @@
 namespace pcpo {
 
 SimpleInterval::SimpleInterval(llvm::Constant const& constant) {
-    if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&constant)) {
-        state = NORMAL;
-        begin = c->getValue();
-        end = c->getValue();
-        return;
-    }
-    // Depending on how you want to handle undef values, you might want to consider them as any
-    // value (e.g. 0).
-    //     if (llvm::UndefValue const* c = llvm::dyn_cast<llvm::UndefValue>(&constant)) {
-    //         if (llvm::IntegerType const* ty = llvm::dyn_cast<llvm::IntegerType>(c->getType())) {
-    //             state = NORMAL;
-    //             begin = APInt::getNullValue(ty->getBitWidth());
-    //             end = begin;
-    //         }
-    //         state = TOP;
-    //         return;
-    //     }
+	if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&constant)) {
+		state = NORMAL;
+		begin = c->getValue();
+		end = c->getValue();
+		return;
+	}
+	
 
-    state = TOP;
+		// Depending on how you want to handle undef values, you might want to consider them as any
+		// value (e.g. 0).
+		//     if (llvm::UndefValue const* c = llvm::dyn_cast<llvm::UndefValue>(&constant)) {
+		//         if (llvm::IntegerType const* ty = llvm::dyn_cast<llvm::IntegerType>(c->getType())) {
+		//             state = NORMAL;
+		//             begin = APInt::getNullValue(ty->getBitWidth());
+		//             end = begin;
+		//         }
+		//         state = TOP;
+		//         return;
+		//     }
+	state = TOP;
+
 }
 
 SimpleInterval::SimpleInterval(APInt _begin, APInt _end) {
@@ -30,7 +32,6 @@ SimpleInterval::SimpleInterval(APInt _begin, APInt _end) {
     begin = _begin;
     end = _end;
 }
-
 
 // Internal helper functions
 
@@ -106,6 +107,12 @@ SimpleInterval SimpleInterval::interpret(
 
     // We only deal with integer types
     llvm::IntegerType const* type = llvm::dyn_cast<llvm::IntegerType>(inst.getType());
+    if (not type) return SimpleInterval {true};
+
+    type = llvm::dyn_cast<llvm::IntegerType>(inst.getOperand(0)->getType());
+    if (not type) return SimpleInterval {true};
+    
+    type = llvm::dyn_cast<llvm::IntegerType>(inst.getOperand(1)->getType());
     if (not type) return SimpleInterval {true};
     
     unsigned bitWidth = inst.getOperand(0)->getType()->getIntegerBitWidth();
