@@ -1,6 +1,6 @@
-# Program Optimization Lab 2018
+# Program Optimization Lab 2019
 
-Implements an LLVM analysis pass using abstract interpretation.
+Implements an LLVM interprocedural analysis pass using abstract interpretation.
 
 ## Build
 
@@ -42,14 +42,19 @@ If there are errors regarding missing header files, you probably need to rebuild
 
 The `run.py` script contains everything, up to and including the kitchen sink. It can run the samples, build, run the debugger, as well as build and run the tests. Just read its help message to get all the good stuff. I want to highlight the `-n` option, which causes it to just print out the commands it would run. This is great to just copy-paste the relevant ones into your terminal (or IDE).
 
-## Authors
+## Authors Lab Course WS 2019/20
+
+* Florian Stamer
+* Dmytro Yakymets
+
+## Authors Lab Course WS 2018/19
 
 * Ramona Brückl
 * Philipp Czerner ([github](https://github.com/suyjuris/), [mail](mailto:philipp.czerner@nicze.de))
 * Tim Gymnich
 * Thomas Frank
 
-### Authors of previous semesters
+## Authors Lab Course SS 2018
 * Julian Erhard
 * Jakob Gottfriedsen
 * Peter Munch
