@@ -14,11 +14,13 @@ parser = argparse.ArgumentParser(description='Setup the project. This creates th
 parser.add_argument('--llvm-path', help='path to the LLVM build directory, containing a file bin/opt.')
 parser.add_argument('--llvm-src', help='path to the LLVM source directory, containing lib/Analysis ')
 parser.add_argument('--clang-path', help='path to the clang build direcotry, containing a file bin/clang')
+parser.add_argument('--xcode', action='store_true', help='for builds using xcode')
 args = parser.parse_args()
 
 llvm_path = args.llvm_path
 llvm_src = args.llvm_src
 clang_path = args.clang_path
+xcode = args.xcode
 
 project_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 project_name = 'AbstractInterpretation'
@@ -63,9 +65,9 @@ if clang_path is None:
     clang_path = llvm_path
     print('clang-path not specified, defaulting to ' + clang_path)
 
-opt = llvm_path + '/bin/opt'
+opt = llvm_path + ['', '/Debug'][xcode] + '/bin/opt'
 llvm_dest = llvm_src + '/lib/Analysis'
-clang = clang_path + '/bin/clang'
+clang = clang_path + ['', '/Debug'][xcode] + '/bin/clang'
 
 if not os.path.isfile(opt):
     print('Error: no opt exists at ' + opt + ' (maybe you forgot to build LLVM?)')
@@ -88,7 +90,7 @@ except FileExistsError:
 # Write the configuration for the run.py script
 config_file_name = project_dir + '/.config';
 config_file = open(config_file_name, 'w')
-config_file.write(llvm_src+'\n'+llvm_path+'\n'+clang_path+'\n')
+config_file.write(llvm_src+'\n'+llvm_path+'\n'+clang_path+'\n'+['make\n', 'xcode\n'][xcode])
 config_file.close()
 print('Wrote configuration to %s' % (config_file_name,))
 

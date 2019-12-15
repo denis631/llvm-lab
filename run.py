@@ -23,12 +23,16 @@ config_file = open(".config", "r")
 lines = config_file.readlines()
 llvm_path = lines[1].strip()
 clang_path = lines[2].strip()
+try:
+    xcode = lines[3].strip() == 'xcode'
+except IndexError:
+    xcode = false
 config_file.close()
 
-opt = llvm_path + '/bin/opt'
-llvm_dis = llvm_path + '/bin/llvm-dis'
-llvm_config = llvm_path + '/bin/llvm-config'
-clang = clang_path + '/bin/clang'
+opt = llvm_path + ['', '/Debug'][xcode] + '/bin/opt'
+llvm_dis = llvm_path + ['', '/Debug'][xcode] + '/bin/llvm-dis'
+llvm_config = llvm_path + ['', '/Debug'][xcode] + '/bin/llvm-config'
+clang = clang_path + ['', '/Debug'][xcode] + '/bin/clang'
 cmake = 'cmake'
 gdb = 'gdb'
 lldb = 'lldb'
@@ -57,7 +61,7 @@ else:
     print('Error: Unknown platform ' + platform.system())
     sys.exit(4)
     
-pass_lib = llvm_path + "/lib/llvm-pain" + libeext
+pass_lib = llvm_path + ['', '/Debug'][xcode] + "/lib/llvm-pain" + libeext
 pass_name = "painpass"
 make_target = "llvm-pain"
 
@@ -140,8 +144,13 @@ def main():
             print("Error: " + f_orig +" not found!")
             continue
         print("Processing file " + fname + " ...")
-    
-        run([clang, '-O0', '-emit-llvm', f_orig, '-Xclang', '-disable-O0-optnone', '-c', '-o', f_bc])
+
+        if platform.system() == 'Darwin':
+            includes = subprocess.getoutput('xcrun --show-sdk-path')
+            run([clang, '--sysroot', includes, '-O0', '-emit-llvm', f_orig, '-Xclang', '-disable-O0-optnone', '-c', '-o', f_bc])
+        else:
+            run([clang, '-O0', '-emit-llvm', f_orig, '-Xclang', '-disable-O0-optnone', '-c', '-o', f_bc])
+
         run([opt, '-mem2reg', f_bc, '-o', f_optbc])
         run([llvm_dis, f_optbc, '-o', f_optll])
         run(['rm', f_bc, f_optbc])
