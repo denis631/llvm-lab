@@ -1,0 +1,511 @@
+#include "normalized_conjunction.h"
+#include <algorithm>
+#include <set>
+
+namespace pcpo {
+
+using APInt = llvm::APInt;
+
+// MARK: Initializers
+
+NormalizedConjunction::NormalizedConjunction(llvm::Constant const& constant) {
+    if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&constant)) {
+        state = NORMAL;
+        // Watch out for signed/unsigend APInts in future
+        Equality eq = {&constant, APInt(64, 0), nullptr, c->getValue()};
+        equalaties = {{&constant,eq}};
+    } else {
+        state = TOP;
+    }
+}
+
+NormalizedConjunction::NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties) {
+    this->equalaties = equalaties;
+    state = NORMAL;
+}
+
+// MARK: AbstractDomain interface
+
+NormalizedConjunction NormalizedConjunction::interpret(
+    llvm::Instruction const& inst, std::vector<NormalizedConjunction> const& operands
+) {
+    // FIXME: maybe use nonDeterministic assignment here.
+    if (operands.size() != 2) return NormalizedConjunction {true};
+
+    // We only deal with integer types
+    llvm::IntegerType const* type = llvm::dyn_cast<llvm::IntegerType>(inst.getType());
+    // FIXME: maybe use nonDeterministic assignment here.
+    if (not type) return NormalizedConjunction {true};
+    
+    type = llvm::dyn_cast<llvm::IntegerType>(inst.getOperand(0)->getType());
+    // FIXME: maybe use nonDeterministic assignment here.
+    if (not type) return NormalizedConjunction {true};
+    
+    type = llvm::dyn_cast<llvm::IntegerType>(inst.getOperand(1)->getType());
+    // FIXME: maybe use nonDeterministic assignment here.
+    if (not type) return NormalizedConjunction {true};
+    
+    unsigned bitWidth = inst.getOperand(0)->getType()->getIntegerBitWidth();
+    assert(bitWidth == inst.getOperand(1)->getType()->getIntegerBitWidth());
+
+    NormalizedConjunction a = operands[0];
+    NormalizedConjunction b = operands[1];
+        
+    // Abstract Effect of statements:
+            
+    // [xi := ?]
+    // default
+    
+    // [xi := b]
+    // This will never occur due to SSA Form.
+    
+    // [xi := xi]
+    // [xi := xj]
+    // Those will never occur due to SSA Form.
+    
+    // [xi := xi + b]   [xi := xi - b]
+    // Cannot occur due to SSA
+    
+    // [xi := xj + b]   [xi := xj - b]
+    
+    // [xi := a * xi]   [xi := a / xi]
+    // Cannot occur due to SSA
+    
+    // [xi := a * xj]   [xi := a / xj]
+    
+    // [xi := a * xi + b]   [xi := a * xi - b]   [xi := a / xi + b]  [xi := a / xi - b]
+    // Cannot occur due to SSA
+    
+    // [xi := a * xj + b]   [xi := a * xj - b]   [xi := a / xj + b]  [xi := a / xj - b]
+    // Those will never occur due to SSA Form.
+    
+    switch (inst.getOpcode()) {
+        case llvm::Instruction::Add:
+            return NormalizedConjunction::Add(inst, a, b);
+        case llvm::Instruction::Sub:
+            return NormalizedConjunction::Sub(inst, a, b);
+        case llvm::Instruction::Mul:
+            return NormalizedConjunction::Mul(inst, a, b);
+        case llvm::Instruction::SDiv:
+        case llvm::Instruction::UDiv:
+        default:
+            return nonDeterminsticAssignment(inst, a, b);
+    }
+}
+
+NormalizedConjunction NormalizedConjunction::refineBranch(llvm::CmpInst::Predicate pred, llvm::Value const& lhs, llvm::Value const& rhs, NormalizedConjunction a, NormalizedConjunction b) {
+
+    // TODO
+    
+    assert(false && "Not implemented");
+    
+    return nullptr;
+}
+
+
+NormalizedConjunction NormalizedConjunction::merge(Merge_op::Type op, NormalizedConjunction a, NormalizedConjunction b) {
+    if (a.isBottom()) return b;
+    if (b.isBottom()) return a;
+    if (a.isTop() || b.isTop()) return NormalizedConjunction {true};
+
+    // Note that T is handled above, so no need to convert the inputs
+    
+    switch (op) {
+    case Merge_op::UPPER_BOUND:
+        return leastUpperBound(a, b);
+    case Merge_op::WIDEN:
+        assert(false && "not implemented");
+    case Merge_op::NARROW:
+        assert(false && "not implmented");
+    default:
+        assert(false && "invalid op value");
+        return NormalizedConjunction {true};
+    }
+}
+
+    // TODO: getter / setter for equlaties to keep equalaties normalized
+
+
+// MARK: Lattice Operations
+    
+NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjunction lhs, NormalizedConjunction rhs) {
+    // set of all occuring variables in E1 and E2
+    std::set<llvm::Value const*> vars, varsE1, varsE2;
+    std::set<Equality> E1, E2;
+
+    auto mapToSeccond = [](std::pair<llvm::Value const*,Equality> p){ return p.second; };
+    std::transform(lhs.equalaties.begin(), lhs.equalaties.end(), std::inserter(E1, E1.end()), mapToSeccond);
+    std::transform(rhs.equalaties.begin(), rhs.equalaties.end(), std::inserter(E2, E2.end()), mapToSeccond);
+    
+    auto mapToY = [](Equality eq){ return eq.y; };
+    std::transform(E1.begin(), E1.end(), std::inserter(varsE1, varsE1.end()), mapToY);
+    std::transform(E2.begin(), E2.end(), std::inserter(varsE2, varsE2.end()), mapToY);
+    std::set_union(varsE1.begin(), varsE1.end(), varsE2.begin(), varsE2.end(), std::inserter(vars, vars.end()));
+    
+    std::set<llvm::Value const*> dX1, dX2;
+    
+    std::set_difference(vars.begin(), vars.end(), varsE1.begin(), varsE1.end(), std::inserter(dX1, dX1.end()));
+    std::set_difference(vars.begin(), vars.end(), varsE2.begin(), varsE2.end(), std::inserter(dX2, dX2.end()));
+        
+    // extend E1 by trivial equalities
+    for (auto d: dX1) {
+        Equality eq = {d, APInt(64,0), d, APInt(64,0)};
+        E1.insert(eq);
+    }
+    
+    // extend E2 by trivial equalities
+    for (auto d: dX2) {
+        Equality eq = {d, APInt(64,0), d, APInt(64,0)};
+        E2.insert(eq);
+    }
+    
+    // XO / E'0: set of variables where the right hand side in E1 and E2 coincide
+    std::set<Equality> X0;
+    {
+    std::set_intersection(E1.begin(), E1.end(), E2.begin(), E2.end(), std::inserter(X0, X0.end()));
+    
+    // Remove trivial equalities
+    std::set<Equality> filteredX0;
+    auto filterTrivialEqualaties = [](Equality eq){return eq.y != eq.x;};
+    std::copy_if(X0.begin(), X0.end(), std::inserter(filteredX0, filteredX0.end()), filterTrivialEqualaties);
+    X0 = filteredX0;
+    
+    }
+    // X1 / E'1: set of variables where the right hand side is constant but does not coincide in E1 and E2
+    std::set<Equality> X1;
+    {
+    std::set<std::pair<Equality, Equality>> differentConstants;
+    
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+    
+    for (auto eq1: E1) {
+        for (auto eq2: E2) {
+            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+            if (eq1.isConstant() && eq2.isConstant() && eq1.b != eq2.b) {
+                differentConstants.insert({eq1,eq2});
+            }
+        }
+    }
+    
+    // pop first element
+    std::pair<Equality, Equality> h = *differentConstants.begin();
+    differentConstants.erase(differentConstants.begin());
+    
+    for (auto i: differentConstants) {
+        // find a linear equation that contains both points P1(c(1)i, c(1)h) and P2(c(2)i, c(2)h)
+        // y = m * x + b
+        auto y = i.first.y;
+        APInt m = (h.second.b - h.first.b).sdiv((i.second.b - i.first.b));
+        auto x = h.first.x;
+        APInt b = -m * h.first.b + i.first.b;
+        Equality eq = {y, m, x, b};
+        X1.insert(eq);
+    }
+    }
+    // X2 / E'2: set of variables where the right hand side of E1 is constant but the rhs of E2 contains a variable.
+    std::set<Equality> X2;
+    {
+    std::set<std::pair<Equality, Equality>> differentConstants;
+
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+
+    for (auto eq1: E1) {
+        for (auto eq2: E2) {
+            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+            if (eq1.isConstant() && !eq2.isConstant()) {
+                differentConstants.insert({eq1,eq2});
+            }
+        }
+    }
+    
+    std::vector<std::set<std::pair<Equality, Equality>>> Pi2;
+    
+        // partition differentConstants
+        for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+            std::set<std::pair<Equality, Equality>> equivalenceClass;
+            std::pair<Equality, Equality> ipair = *iterator;
+            equivalenceClass.insert(ipair);
+            iterator++;
+            // FIXME: Make sure this doesnt casue any trouble!
+            for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+                std::pair<Equality, Equality> jpair = *tempit;
+                bool condition1 = ipair.second.x == jpair.second.x;
+                bool condition2 = (ipair.first.b - ipair.second.b).sdiv(ipair.second.a) == (jpair.first.b - jpair.second.b).sdiv(jpair.second.a);
+                if (condition1 && condition2) {
+                    equivalenceClass.insert(jpair);
+                    differentConstants.erase(tempit);
+                }
+            }
+            Pi2.push_back(equivalenceClass);
+    }
+
+    // form equaltites for partitions in Pi2
+    for (auto q: Pi2) {
+        std::pair<Equality, Equality> h = *q.begin();
+        q.erase(q.begin());
+        for (auto i: q) {
+            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
+            auto y = i.first.y;
+            auto m = i.second.a.sdiv(h.second.b);
+            auto x = h.first.y;
+            auto b = i.second.b - (i.second.a * h.second.b).sdiv(h.second.a);
+            Equality eq = {y, m, x, b};
+            X2.insert(eq);
+        }
+    }
+    
+    }
+    // X3 / E'3: set of variables where the right hand side of E1 contains a variable and E2 contains a constant.
+    std::set<Equality> X3;
+    {
+    std::set<std::pair<Equality, Equality>> differentConstants;
+
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+
+    for (auto eq1: E1) {
+        for (auto eq2: E2) {
+            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+            if (!eq1.isConstant() && eq2.isConstant()) {
+                differentConstants.insert({eq1,eq2});
+            }
+        }
+    }
+    
+    std::vector<std::set<std::pair<Equality, Equality>>> Pi3;
+    
+        // partition differentConstants
+        for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+            std::set<std::pair<Equality, Equality>> equivalenceClass;
+            std::pair<Equality, Equality> ipair = *iterator;
+            equivalenceClass.insert(ipair);
+            iterator++;
+            // FIXME: Make sure this doesnt casue any trouble!
+            for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+                std::pair<Equality, Equality> jpair = *tempit;
+                bool condition1 = ipair.second.x == jpair.second.x;
+                bool condition2 = (ipair.first.b - ipair.second.b).sdiv(ipair.second.a) == (jpair.first.b - jpair.second.b).sdiv(jpair.second.a);
+                if (condition1 && condition2) {
+                    equivalenceClass.insert(jpair);
+                    differentConstants.erase(tempit);
+                }
+            }
+            Pi3.push_back(equivalenceClass);
+    }
+
+    // form equaltites for partitions in Pi3
+    for (auto q: Pi3) {
+        std::pair<Equality, Equality> h = *q.begin();
+        q.erase(q.begin());
+        for (auto i: q) {
+            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
+            auto y = i.first.y;
+            auto m = i.second.a.sdiv(h.second.b);
+            auto x = h.first.y;
+            auto b = i.second.b - (i.second.a * h.second.b).sdiv(h.second.a);
+            Equality eq = {y, m, x, b};
+            X3.insert(eq);
+        }
+    }
+    
+    }
+    
+    
+    // X4 / E'4:
+    std::set<Equality> X4;
+    {
+        std::set<std::pair<Equality, Equality>> differentConstants;
+
+        assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+
+        for (auto eq1: E1) {
+            for (auto eq2: E2) {
+                assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+                if (!eq1.isConstant() && !eq2.isConstant()) {
+                    differentConstants.insert({eq1,eq2});
+                }
+            }
+        }
+        
+        std::vector<std::set<std::pair<Equality, Equality>>> Pi4;
+        
+        // partition differentConstants
+        for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+            std::set<std::pair<Equality, Equality>> equivalenceClass;
+            std::pair<Equality, Equality> ipair = *iterator;
+            equivalenceClass.insert(ipair);
+            iterator++;
+            // FIXME: Make sure this doesnt casue any trouble!
+            for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+                std::pair<Equality, Equality> jpair = *tempit;
+                bool condition1 = ipair.first.x == jpair.first.x && ipair.second.x == jpair.second.x;
+                bool condition2 = ipair.second.a.sdiv(ipair.first.a) == jpair.second.a.sdiv(jpair.first.a);
+                bool condition3 = (ipair.first.b - ipair.second.b).sdiv(ipair.first.a) == (jpair.first.b - jpair.second.b).sdiv(jpair.first.a);
+                if (condition1 && condition2 && condition3) {
+                    equivalenceClass.insert(jpair);
+                    differentConstants.erase(tempit);
+                }
+            }
+            Pi4.push_back(equivalenceClass);
+        }
+        
+        // form equaltites for partitions in Pi4
+        for (auto q: Pi4) {
+            std::pair<Equality, Equality> h = *q.begin();
+            q.erase(q.begin());
+            for (auto i: q) {
+                // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
+                auto y = i.first.y;
+                auto m = i.second.a.sdiv(h.second.b);
+                auto x = h.first.y;
+                auto b = i.second.b - (i.second.a * h.second.b).sdiv(h.second.a);
+                Equality eq = {y, m, x, b};
+                X3.insert(eq);
+            }
+        }
+        
+        
+    }
+    
+    // E1 U E2 = E'0 AND E'1 AND E'2 AND E'3 AND E'4
+    
+    
+    std::set<Equality> leastUpperBound;
+    leastUpperBound.insert(X0.begin(), X0.end());
+    leastUpperBound.insert(X1.begin(), X1.end());
+    leastUpperBound.insert(X2.begin(), X2.end());
+    leastUpperBound.insert(X3.begin(), X3.end());
+    leastUpperBound.insert(X4.begin(), X4.end());
+    
+    std::map<llvm::Value const*, Equality> result;
+    
+    auto addMapping = [](Equality eq){ return std::make_pair(eq.y,eq); };
+    std::transform(leastUpperBound.begin(), leastUpperBound.end(), std::inserter(result, result.end()), addMapping);
+
+    return NormalizedConjunction(result);
+}
+
+// MARK: Abstract Operations
+
+// [xi := ?]# E = Exists# xi in E
+NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
+    auto result = leastUpperBound(lhs, rhs);
+    
+    auto i = result.equalaties[&inst];
+    if (i.x != &inst && i.a != APInt(64,0)) {
+        result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
+    } else {
+        // find all equations using xi
+        std::map<llvm::Value const*, Equality> X;
+        auto predicate = [&i](std::pair<llvm::Value const*, Equality> p){ return p.second.x = i.y;};
+        std::copy_if(result.equalaties.begin(), result.equalaties.end(), std::inserter(X, X.end()), predicate);
+        // pop first element
+        std::pair<llvm::Value const*, Equality> k = *X.begin();
+        X.erase(X.begin());
+        for (auto l: X) {
+            // FIXME: modify result instead of X which will get dropped later and not be used anymore
+            // use std::find_if iterator instead of copy if
+            l.second.a = APInt(64,1);
+            l.second.x = k.second.y;
+            l.second.b = l.second.b - k.second.b;
+        }
+        k.second.a = APInt(64,1);
+        k.second.x = k.second.y;
+        k.second.b = APInt(64,0);
+        result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
+    }
+    return result;
+}
+
+// TODO: [xi := xj + x]
+NormalizedConjunction NormalizedConjunction::Add(llvm::Instruction const& inst,  NormalizedConjunction lhs, NormalizedConjunction rhs) {
+    auto result = leastUpperBound(lhs, rhs);
+    auto i = result.equalaties[&inst];
+    
+    auto op1 = inst.getOperand(0);
+    auto op2 = inst.getOperand(1);
+    
+    llvm::Value const* j;
+    llvm::ConstantInt const* b;
+    
+    if (llvm::isa<llvm::ConstantInt>(op1) && llvm::isa<llvm::Value>(op2)) {
+        b = llvm::dyn_cast<llvm::ConstantInt>(op1);
+        j = op2;
+    } else if (llvm::isa<llvm::ConstantInt>(op2) && llvm::isa<llvm::Value>(op1)) {
+        b = llvm::dyn_cast<llvm::ConstantInt>(op2);
+        j = op1;
+    } else {
+        assert(false && "One operand has to be constant");
+    }
+    
+    auto jj = result.equalaties[j];
+    
+    if (i > jj) {
+        result.equalaties[i.y] = {i.y, APInt(64,1), jj.x, i.b + jj.b};;
+    } else {
+        // Filter results
+        auto pred = [&jj](std::pair<llvm::Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
+        for (auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), pred);
+             it != result.equalaties.end();
+             it = std::find_if(++it, result.equalaties.end(), pred)) {
+            auto& k = it->second;
+            result.equalaties[k.y] = {k.y, APInt(64,1), i.y, k.b - i.b - jj.b};
+        }
+        result.equalaties[jj.y] = {jj.y, APInt(64,1), i.y, -i.b - jj.b};
+    }
+    
+    return result;
+}
+
+// TODO: [xi := xj - x]
+NormalizedConjunction NormalizedConjunction::Sub(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
+    auto result = leastUpperBound(lhs, rhs);
+    auto i = result.equalaties[&inst];
+    
+    auto op1 = inst.getOperand(0);
+    auto op2 = inst.getOperand(1);
+    
+    llvm::Value const* j;
+    llvm::ConstantInt const* b;
+    
+    if (llvm::isa<llvm::ConstantInt>(op1) && llvm::isa<llvm::Value>(op2)) {
+        b = llvm::dyn_cast<llvm::ConstantInt>(op1);
+        j = op2;
+    } else if (llvm::isa<llvm::ConstantInt>(op2) && llvm::isa<llvm::Value>(op1)) {
+        b = llvm::dyn_cast<llvm::ConstantInt>(op2);
+        j = op1;
+    } else {
+        assert(false && "One operand has to be constant");
+    }
+    
+    auto jj = result.equalaties[j];
+    
+    if (i > jj) {
+        result.equalaties[i.y] = {i.y, APInt(64,1), jj.x, jj.b - i.b};;
+    } else {
+        // Filter results
+        auto pred = [&jj](std::pair<llvm::Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
+        for (auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), pred);
+             it != result.equalaties.end();
+             it = std::find_if(++it, result.equalaties.end(), pred)) {
+            auto& k = it->second;
+            result.equalaties[k.y] = {k.y, APInt(64,1), i.y, k.b + i.b - jj.b};
+        }
+        result.equalaties[jj.y] = {jj.y, APInt(64,1), i.y, i.b - jj.b};
+    }
+    
+    return result;
+}
+
+// [xi := a * xj]
+NormalizedConjunction NormalizedConjunction::Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
+    auto result = leastUpperBound(lhs, rhs);
+
+    // TODO
+    assert(false && "not implemented");
+    
+    return result;
+}
+
+}
+
+

@@ -19,6 +19,8 @@ add_llvm_library(llvm-pain MODULE
   src/value_set.h
   src/simple_interval.cpp
   src/simple_interval.h
+  src/normalized_conjunction.cpp
+  src/normalized_conjunction.h
   DEPENDS
   intrinsics_gen
   PLUGIN_TOOL
