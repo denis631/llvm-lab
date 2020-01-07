@@ -4,12 +4,12 @@
 
 namespace pcpo {
 
-using APInt = llvm::APInt;
+using namespace llvm;
 
 // MARK: Initializers
 
-NormalizedConjunction::NormalizedConjunction(llvm::Constant const& constant) {
-    if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&constant)) {
+NormalizedConjunction::NormalizedConjunction(Constant const& constant) {
+    if (ConstantInt const* c = dyn_cast<ConstantInt>(&constant)) {
         state = NORMAL;
         // Watch out for signed/unsigend APInts in future
         Equality eq = {&constant, APInt(64, 0), nullptr, c->getValue()};
@@ -19,7 +19,7 @@ NormalizedConjunction::NormalizedConjunction(llvm::Constant const& constant) {
     }
 }
 
-NormalizedConjunction::NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties) {
+NormalizedConjunction::NormalizedConjunction(std::map<Value const*, Equality> equalaties) {
     this->equalaties = equalaties;
     state = NORMAL;
 }
@@ -27,21 +27,21 @@ NormalizedConjunction::NormalizedConjunction(std::map<llvm::Value const*, Equali
 // MARK: AbstractDomain interface
 
 NormalizedConjunction NormalizedConjunction::interpret(
-    llvm::Instruction const& inst, std::vector<NormalizedConjunction> const& operands
+    Instruction const& inst, std::vector<NormalizedConjunction> const& operands
 ) {
     // FIXME: maybe use nonDeterministic assignment here.
     if (operands.size() != 2) return NormalizedConjunction {true};
 
     // We only deal with integer types
-    llvm::IntegerType const* type = llvm::dyn_cast<llvm::IntegerType>(inst.getType());
+    IntegerType const* type = dyn_cast<IntegerType>(inst.getType());
     // FIXME: maybe use nonDeterministic assignment here.
     if (not type) return NormalizedConjunction {true};
     
-    type = llvm::dyn_cast<llvm::IntegerType>(inst.getOperand(0)->getType());
+    type = dyn_cast<IntegerType>(inst.getOperand(0)->getType());
     // FIXME: maybe use nonDeterministic assignment here.
     if (not type) return NormalizedConjunction {true};
     
-    type = llvm::dyn_cast<llvm::IntegerType>(inst.getOperand(1)->getType());
+    type = dyn_cast<IntegerType>(inst.getOperand(1)->getType());
     // FIXME: maybe use nonDeterministic assignment here.
     if (not type) return NormalizedConjunction {true};
     
@@ -80,20 +80,20 @@ NormalizedConjunction NormalizedConjunction::interpret(
     // Those will never occur due to SSA Form.
     
     switch (inst.getOpcode()) {
-        case llvm::Instruction::Add:
+        case Instruction::Add:
             return NormalizedConjunction::Add(inst, a, b);
-        case llvm::Instruction::Sub:
+        case Instruction::Sub:
             return NormalizedConjunction::Sub(inst, a, b);
-        case llvm::Instruction::Mul:
+        case Instruction::Mul:
             return NormalizedConjunction::Mul(inst, a, b);
-        case llvm::Instruction::SDiv:
-        case llvm::Instruction::UDiv:
+        case Instruction::SDiv:
+        case Instruction::UDiv:
         default:
             return nonDeterminsticAssignment(inst, a, b);
     }
 }
 
-NormalizedConjunction NormalizedConjunction::refineBranch(llvm::CmpInst::Predicate pred, llvm::Value const& lhs, llvm::Value const& rhs, NormalizedConjunction a, NormalizedConjunction b) {
+NormalizedConjunction NormalizedConjunction::refineBranch(CmpInst::Predicate pred, Value const& lhs, Value const& rhs, NormalizedConjunction a, NormalizedConjunction b) {
 
     // Do nothing
     return a;
@@ -127,19 +127,19 @@ NormalizedConjunction NormalizedConjunction::merge(Merge_op::Type op, Normalized
     
 NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjunction lhs, NormalizedConjunction rhs) {
     // set of all occuring variables in E1 and E2
-    std::set<llvm::Value const*> vars, varsE1, varsE2;
+    std::set<Value const*> vars, varsE1, varsE2;
     std::set<Equality> E1, E2;
 
-    auto mapToSeccond = [](std::pair<llvm::Value const*,Equality> p){ return p.second; };
-    llvm::transform(lhs.equalaties, std::inserter(E1, E1.end()), mapToSeccond);
-    llvm::transform(rhs.equalaties, std::inserter(E2, E2.end()), mapToSeccond);
+    auto mapToSeccond = [](std::pair<Value const*,Equality> p){ return p.second; };
+    transform(lhs.equalaties, std::inserter(E1, E1.end()), mapToSeccond);
+    transform(rhs.equalaties, std::inserter(E2, E2.end()), mapToSeccond);
     
     auto mapToY = [](Equality eq){ return eq.y; };
-    llvm::transform(E1, std::inserter(varsE1, varsE1.end()), mapToY);
-    llvm::transform(E2, std::inserter(varsE2, varsE2.end()), mapToY);
+    transform(E1, std::inserter(varsE1, varsE1.end()), mapToY);
+    transform(E2, std::inserter(varsE2, varsE2.end()), mapToY);
     std::set_union(varsE1.begin(), varsE1.end(), varsE2.begin(), varsE2.end(), std::inserter(vars, vars.end()));
     
-    std::set<llvm::Value const*> dX1, dX2;
+    std::set<Value const*> dX1, dX2;
     
     std::set_difference(vars.begin(), vars.end(), varsE1.begin(), varsE1.end(), std::inserter(dX1, dX1.end()));
     std::set_difference(vars.begin(), vars.end(), varsE2.begin(), varsE2.end(), std::inserter(dX2, dX2.end()));
@@ -164,7 +164,7 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     // Remove trivial equalities
     std::set<Equality> filteredX0;
     auto filterTrivialEqualaties = [](Equality eq){return eq.y != eq.x;};
-    std::copy_if(X0.begin(), X0.end(), std::inserter(filteredX0, filteredX0.end()), filterTrivialEqualaties);
+    copy_if(X0, std::inserter(filteredX0, filteredX0.end()), filterTrivialEqualaties);
     X0 = filteredX0;
     
     }
@@ -373,10 +373,10 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     leastUpperBound.insert(X3.begin(), X3.end());
     leastUpperBound.insert(X4.begin(), X4.end());
     
-    std::map<llvm::Value const*, Equality> result;
+    std::map<Value const*, Equality> result;
     
     auto addMapping = [](Equality eq){ return std::make_pair(eq.y,eq); };
-    std::transform(leastUpperBound.begin(), leastUpperBound.end(), std::inserter(result, result.end()), addMapping);
+    transform(leastUpperBound, std::inserter(result, result.end()), addMapping);
 
     return NormalizedConjunction(result);
 }
@@ -384,14 +384,13 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
 // MARK: Abstract Operations
 
 // [xi := ?]# E = Exists# xi in E
-NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);APInt(64,0);
     auto i = result.equalaties[&inst];
     if (i.x != &inst && i.b != APInt(64,0)) {
         result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
     } else {
         // find all equations using xi
-        auto predicate = [&i](std::pair<llvm::Value const*, Equality> p){ return p.second.x = i.y;};
+        auto predicate = [&i](std::pair<Value const*, Equality> p){ return p.second.x = i.y;};
         auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), predicate);
         if (it != result.equalaties.end()) {
             Equality k = (*it).second;
@@ -409,21 +408,21 @@ NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(llvm::Ins
 }
 
 // TODO: [xi := xj + x]
-NormalizedConjunction NormalizedConjunction::Add(llvm::Instruction const& inst,  NormalizedConjunction lhs, NormalizedConjunction rhs) {
+NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
     
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
     
-    llvm::Value const* j;
-    llvm::ConstantInt const* b;
+    Value const* j;
+    ConstantInt const* b;
     
-    if (llvm::isa<llvm::ConstantInt>(op1) && llvm::isa<llvm::Value>(op2)) {
-        b = llvm::dyn_cast<llvm::ConstantInt>(op1);
+    if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
+        b = dyn_cast<ConstantInt>(op1);
         j = op2;
-    } else if (llvm::isa<llvm::ConstantInt>(op2) && llvm::isa<llvm::Value>(op1)) {
-        b = llvm::dyn_cast<llvm::ConstantInt>(op2);
+    } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
+        b = dyn_cast<ConstantInt>(op2);
         j = op1;
     } else {
         assert(false && "One operand has to be constant");
@@ -435,12 +434,11 @@ NormalizedConjunction NormalizedConjunction::Add(llvm::Instruction const& inst, 
         result.equalaties[i.y] = {i.y, APInt(64,1), jj.x, i.b + jj.b};;
     } else {
         // Filter results
-        auto pred = [&jj](std::pair<llvm::Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
-        for (auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), pred);
-             it != result.equalaties.end();
-             it = std::find_if(++it, result.equalaties.end(), pred)) {
-            auto& k = it->second;
             result.equalaties[k.y] = {k.y, APInt(64,1), i.y, k.b - i.b - jj.b};
+        auto pred = [&jj](std::pair<Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
+        
+        for (auto kpair: make_filter_range(result.equalaties, pred)) {
+            auto k = kpair.second;
         }
         result.equalaties[jj.y] = {jj.y, APInt(64,1), i.y, -i.b - jj.b};
     }
@@ -449,21 +447,21 @@ NormalizedConjunction NormalizedConjunction::Add(llvm::Instruction const& inst, 
 }
 
 // TODO: [xi := xj - x]
-NormalizedConjunction NormalizedConjunction::Sub(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
+NormalizedConjunction NormalizedConjunction::Sub(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
     
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
     
-    llvm::Value const* j;
-    llvm::ConstantInt const* b;
+    Value const* j;
+    ConstantInt const* b;
     
-    if (llvm::isa<llvm::ConstantInt>(op1) && llvm::isa<llvm::Value>(op2)) {
-        b = llvm::dyn_cast<llvm::ConstantInt>(op1);
+    if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
+        b = dyn_cast<ConstantInt>(op1);
         j = op2;
-    } else if (llvm::isa<llvm::ConstantInt>(op2) && llvm::isa<llvm::Value>(op1)) {
-        b = llvm::dyn_cast<llvm::ConstantInt>(op2);
+    } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
+        b = dyn_cast<ConstantInt>(op2);
         j = op1;
     } else {
         assert(false && "One operand has to be constant");
@@ -475,12 +473,10 @@ NormalizedConjunction NormalizedConjunction::Sub(llvm::Instruction const& inst, 
         result.equalaties[i.y] = {i.y, APInt(64,1), jj.x, jj.b - i.b};;
     } else {
         // Filter results
-        auto pred = [&jj](std::pair<llvm::Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
-        for (auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), pred);
-             it != result.equalaties.end();
-             it = std::find_if(++it, result.equalaties.end(), pred)) {
-            auto& k = it->second;
             result.equalaties[k.y] = {k.y, APInt(64,1), i.y, k.b + i.b - jj.b};
+        auto pred = [&jj](std::pair<Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
+        for (auto kpair: make_filter_range(result.equalaties, pred)) {
+            auto& k = kpair.second;
         }
         result.equalaties[jj.y] = {jj.y, APInt(64,1), i.y, i.b - jj.b};
     }
@@ -489,7 +485,7 @@ NormalizedConjunction NormalizedConjunction::Sub(llvm::Instruction const& inst, 
 }
 
 // [xi := a * xj]
-NormalizedConjunction NormalizedConjunction::Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
+NormalizedConjunction NormalizedConjunction::Mul(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
 
     // TODO
@@ -504,16 +500,16 @@ bool NormalizedConjunction::isNormalized() const {
     bool result = true;
     for (auto eq: equalaties) {
         if (eq.second.isConstant()) {
-            auto containsY = [&eq](std::pair<llvm::Value const*, Equality> pair){ return pair.second.x == eq.second.y; };
-            result &= llvm::none_of(equalaties, containsY);
+            auto containsY = [&eq](std::pair<Value const*, Equality> pair){ return pair.second.x == eq.second.y; };
+            result &= none_of(equalaties, containsY);
         } else {
-            auto occursElseWhere = [&eq](std::pair<llvm::Value const*, Equality> pair){ return eq.second.y != pair.second.y && eq.second.y == pair.second.x; };
-            result &= llvm::none_of(equalaties, occursElseWhere);
+            auto occursElseWhere = [&eq](std::pair<Value const*, Equality> pair){ return eq.second.y != pair.second.y && eq.second.y == pair.second.x; };
+            result &= none_of(equalaties, occursElseWhere);
         }
     }
     
-    auto jGreaterI = [](std::pair<llvm::Value const*, Equality> pair){ return pair.second.y > pair.second.x;};
-    result &= llvm::all_of(equalaties, jGreaterI);
+    auto jGreaterI = [](std::pair<Value const*, Equality> pair){ return pair.second.y > pair.second.x;};
+    result &= all_of(equalaties, jGreaterI);
     return result;
 }
 
@@ -525,7 +521,7 @@ bool NormalizedConjunction::operator==(NormalizedConjunction rhs) const {
         : state == rhs.state;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NormalizedConjunction a) {
+raw_ostream& operator<<(raw_ostream& os, NormalizedConjunction a) {
     if (a.isBottom()) {
         os << "[]";
     } else if(a.isTop()) {
