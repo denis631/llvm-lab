@@ -23,9 +23,10 @@ class NormalizedConjunction {
         struct Equality {
             // y = a * x + b
             llvm::Value const* y;
-            llvm::APInt a;
+            // APInt would be nicer, but our anlysis doesnt care about bit width
+            int64_t a;
             llvm::Value const* x;
-            llvm::APInt b;
+            int64_t b;
             
             inline bool operator<(Equality const& rhs) const {
                 return y < rhs.y;

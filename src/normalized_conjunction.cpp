@@ -12,11 +12,12 @@ NormalizedConjunction::NormalizedConjunction(Constant const& constant) {
     if (ConstantInt const* c = dyn_cast<ConstantInt>(&constant)) {
         state = NORMAL;
         // Watch out for signed/unsigend APInts in future
-        Equality eq = {&constant, APInt(64, 0), nullptr, c->getValue()};
+        Equality eq = {&constant, 0, nullptr, c->getValue().getSExtValue()};
         equalaties = {{&constant,eq}};
     } else {
         state = TOP;
     }
+    
 }
 
 NormalizedConjunction::NormalizedConjunction(std::map<Value const*, Equality> equalaties) {
@@ -146,13 +147,13 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
         
     // extend E1 by trivial equalities
     for (auto d: dX1) {
-        Equality eq = {d, APInt(64,0), d, APInt(64,0)};
+        Equality eq = {d, 1, d, 0};
         E1.insert(eq);
     }
     
     // extend E2 by trivial equalities
     for (auto d: dX2) {
-        Equality eq = {d, APInt(64,0), d, APInt(64,0)};
+        Equality eq = {d, 1, d, 0};
         E2.insert(eq);
     }
     
@@ -183,22 +184,24 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
                 differentConstants.insert({eq1,eq2});
             }
         }
-    }
-    
-    // pop first element
-    std::pair<Equality, Equality> h = *differentConstants.begin();
-    differentConstants.erase(differentConstants.begin());
-    
-    for (auto i: differentConstants) {
-        // find a linear equation that contains both points P1(c(1)i, c(1)h) and P2(c(2)i, c(2)h)
-        // y = m * x + b
-        auto y = i.first.y;
-        APInt m = (h.second.b - h.first.b).sdiv((i.second.b - i.first.b));
-        auto x = h.first.x;
-        APInt b = -m * h.first.b + i.first.b;
-        Equality eq = {y, m, x, b};
-        X1.insert(eq);
-    }
+        
+        if (!differentConstants.empty()) {
+            // pop first element
+            std::pair<Equality, Equality> h = *differentConstants.begin();
+            differentConstants.erase(differentConstants.begin());
+            
+            for (auto i: differentConstants) {
+                // find a linear equation that contains both points P1(c(1)i, c(1)h) and P2(c(2)i, c(2)h)
+                // y = m * x + b
+                auto y = i.first.y;
+                int64_t m = (h.second.b - h.first.b) / ((i.second.b - i.first.b));
+                auto x = h.first.x;
+                int64_t b = -m * h.first.b + i.first.b;
+                Equality eq = {y, m, x, b};
+                X1.insert(eq);
+            }
+        }
+
     }
     // X2 / E'2: set of variables where the right hand side of E1 is constant but the rhs of E2 contains a variable.
     std::set<Equality> X2;
@@ -224,11 +227,12 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
             std::pair<Equality, Equality> ipair = *iterator;
             equivalenceClass.insert(ipair);
             iterator++;
+            
             // FIXME: Make sure this doesnt casue any trouble!
             for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
                 std::pair<Equality, Equality> jpair = *tempit;
                 bool condition1 = ipair.second.x == jpair.second.x;
-                bool condition2 = (ipair.first.b - ipair.second.b).sdiv(ipair.second.a) == (jpair.first.b - jpair.second.b).sdiv(jpair.second.a);
+                bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
                 if (condition1 && condition2) {
                     equivalenceClass.insert(jpair);
                     differentConstants.erase(tempit);
@@ -244,9 +248,9 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
         for (auto i: q) {
             // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
             auto y = i.first.y;
-            auto m = i.second.a.sdiv(h.second.b);
+            auto m = i.second.a / h.second.b;
             auto x = h.first.y;
-            auto b = i.second.b - (i.second.a * h.second.b).sdiv(h.second.a);
+            auto b = i.second.b - (i.second.a * h.second.b) / h.second.a;
             Equality eq = {y, m, x, b};
             X2.insert(eq);
         }
@@ -281,7 +285,7 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
             for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
                 std::pair<Equality, Equality> jpair = *tempit;
                 bool condition1 = ipair.second.x == jpair.second.x;
-                bool condition2 = (ipair.first.b - ipair.second.b).sdiv(ipair.second.a) == (jpair.first.b - jpair.second.b).sdiv(jpair.second.a);
+                bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
                 if (condition1 && condition2) {
                     equivalenceClass.insert(jpair);
                     differentConstants.erase(tempit);
@@ -297,9 +301,9 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
         for (auto i: q) {
             // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
             auto y = i.first.y;
-            auto m = i.second.a.sdiv(h.second.b);
+            auto m = i.second.a / (h.second.b);
             auto x = h.first.y;
-            auto b = i.second.b - (i.second.a * h.second.b).sdiv(h.second.a);
+            auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
             Equality eq = {y, m, x, b};
             X3.insert(eq);
         }
@@ -336,8 +340,8 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
             for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
                 std::pair<Equality, Equality> jpair = *tempit;
                 bool condition1 = ipair.first.x == jpair.first.x && ipair.second.x == jpair.second.x;
-                bool condition2 = ipair.second.a.sdiv(ipair.first.a) == jpair.second.a.sdiv(jpair.first.a);
-                bool condition3 = (ipair.first.b - ipair.second.b).sdiv(ipair.first.a) == (jpair.first.b - jpair.second.b).sdiv(jpair.first.a);
+                bool condition2 = ipair.second.a / (ipair.first.a) == jpair.second.a / (jpair.first.a);
+                bool condition3 = (ipair.first.b - ipair.second.b) / (ipair.first.a) == (jpair.first.b - jpair.second.b) / (jpair.first.a);
                 if (condition1 && condition2 && condition3) {
                     equivalenceClass.insert(jpair);
                     differentConstants.erase(tempit);
@@ -353,9 +357,9 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
             for (auto i: q) {
                 // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
                 auto y = i.first.y;
-                auto m = i.second.a.sdiv(h.second.b);
+                auto m = i.second.a / (h.second.b);
                 auto x = h.first.y;
-                auto b = i.second.b - (i.second.a * h.second.b).sdiv(h.second.a);
+                auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
                 Equality eq = {y, m, x, b};
                 X3.insert(eq);
             }
@@ -385,10 +389,11 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
 // MARK: Abstract Operations
 
 // [xi := ?]# E = Exists# xi in E
-    auto result = leastUpperBound(lhs, rhs);APInt(64,0);
+NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
+    auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
-    if (i.x != &inst && i.b != APInt(64,0)) {
-        result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
+    if (i.x != &inst && i.b != 0) {
+        result.equalaties[&inst] = {&inst, 1, &inst, 0};
     } else {
         // find all equations using xi
         auto predicate = [&i](std::pair<Value const*, Equality> p){ return p.second.x = i.y;};
@@ -399,11 +404,11 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
                  it != result.equalaties.end();
                  it = std::find_if(++it, result.equalaties.end(), predicate)) {
                 auto& l = it->second;
-                result.equalaties[l.y] = {l.y, APInt(64,1), k.y, l.b - k.b};
+                result.equalaties[l.y] = {l.y, 1, k.y, l.b - k.b};
             }
-            result.equalaties[k.y] = {k.y, APInt(64,1), k.y, APInt(64,0)};
+            result.equalaties[k.y] = {k.y, 1, k.y, 0};
         }
-        result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
+        result.equalaties[&inst] = {&inst, 1, &inst, 0};
     }
     return result;
 }
@@ -432,16 +437,18 @@ NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  Norma
     auto jj = result.equalaties[j];
     
     if (i > jj) {
-        result.equalaties[i.y] = {i.y, APInt(64,1), jj.x, i.b + jj.b};;
+        result.equalaties[i.y] = {i.y, 1, jj.x, i.b + jj.b};;
     } else {
         // Filter results
-            result.equalaties[k.y] = {k.y, APInt(64,1), i.y, k.b - i.b - jj.b};
         auto pred = [&jj](std::pair<Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
         
         for (auto kpair: make_filter_range(result.equalaties, pred)) {
             auto k = kpair.second;
+            result.equalaties[k.y] = {k.y, 1, i.y, k.b - i.b - jj.b};
         }
-        result.equalaties[jj.y] = {jj.y, APInt(64,1), i.y, -i.b - jj.b};
+    
+        auto bitWidht = std::max(i.b, jj.b);
+        result.equalaties[jj.y] = {jj.y, 1, i.y, -i.b - jj.b};
     }
     
     return result;
@@ -471,15 +478,15 @@ NormalizedConjunction NormalizedConjunction::Sub(Instruction const& inst, Normal
     auto jj = result.equalaties[j];
     
     if (i > jj) {
-        result.equalaties[i.y] = {i.y, APInt(64,1), jj.x, jj.b - i.b};;
+        result.equalaties[i.y] = {i.y, 1, jj.x, jj.b - i.b};;
     } else {
         // Filter results
-            result.equalaties[k.y] = {k.y, APInt(64,1), i.y, k.b + i.b - jj.b};
         auto pred = [&jj](std::pair<Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
         for (auto kpair: make_filter_range(result.equalaties, pred)) {
             auto& k = kpair.second;
+            result.equalaties[k.y] = {k.y, 1, i.y, k.b + i.b - jj.b};
         }
-        result.equalaties[jj.y] = {jj.y, APInt(64,1), i.y, i.b - jj.b};
+        result.equalaties[jj.y] = {jj.y, 1, i.y, i.b - jj.b};
     }
     
     return result;
