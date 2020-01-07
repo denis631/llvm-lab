@@ -1,5 +1,3 @@
-#include "fixpoint.h"
-
 #include <unordered_map>
 #include <vector>
 
@@ -8,93 +6,13 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 
-#include "general.h"
 #include "global.h"
 #include "callstring.h"
-#include "fixpoint_widening.cpp"
-#include "fixpoint_two_var_eq.cpp"
 #include "value_set.h"
-#include "simple_interval.h"
-#include "normalized_conjunction.h"
-
 
 namespace pcpo {
 
-static llvm::RegisterPass<AbstractInterpretationPass> Y("painpass", "AbstractInterpretation Pass");
-
-char AbstractInterpretationPass::ID;
-
-int debug_level = DEBUG_LEVEL; // from global.hpp
-
-class AbstractStateDummy {
-public:
-    // This has to initialise the state to bottom.
-    AbstractStateDummy() = default;
-
-    // Creates a copy of the state. Using the default copy-constructor should be fine here, but if
-    // some members do something weird you maybe want to implement this as
-    //     AbstractState().merge(state)
-    AbstractStateDummy(AbstractStateDummy const& state) = default;
-
-    // Initialise the state to the incoming state of the function. This should do something like
-    // assuming the parameters can be anything.
-    explicit AbstractStateDummy(llvm::Function const& f) {}
-
-    // Initialise the state of a function call with parameters of the caller.
-    // This is the "enter" function as described in "Compiler Design: Analysis and Transformation" 
-    explicit AbstractStateDummy(llvm::Function const* callee_func, AbstractStateDummy const& state,
-                                llvm::CallInst const* call) {}
-
-    // Apply functions apply the changes needed to reflect executing the instructions in the basic block. Before
-    // this operation is called, the state is the one upon entering bb, afterwards it should be (an
-    // upper bound of) the state leaving the basic block.
-    //  predecessors contains the outgoing state for all the predecessors, in the same order as they
-    // are listed in llvm::predecessors(bb).
-
-    // Applies instructions within the PHI node, needed for merging
-    void applyPHINode(llvm::BasicBlock const& bb, std::vector<AbstractStateDummy> const& pred_values,
-                      llvm::Instruction const& inst) {};
-
-    // This is the "combine" function as described in "Compiler Design: Analysis and Transformation"
-    void applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block,
-                       AbstractStateDummy const& callee_state) {};
-
-    // Evaluates return instructions, needed for the main function and the debug output
-    void applyReturnInst(llvm::Instruction const& inst) {};
-
-    // Handles all cases different from the three above
-    void applyDefault(llvm::Instruction const& inst) {};
-
-    // This 'merges' two states, which is the operation we do fixpoint iteration over. Currently,
-    // there are three possibilities for op:
-    //   1. UPPER_BOUND: This has to return some upper bound of itself and other, with more precise
-    //      bounds being preferred.
-    //   2. WIDEN: Same as UPPER_BOUND, but this operation should sacrifice precision to converge
-    //      quickly. Returning T would be fine, though maybe not optimal. For example for intervals,
-    //      an implementation could ensure to double the size of the interval.
-    //   3. NARROW: Return a value between the intersection of the state and other, and the
-    //      state. In pseudocode:
-    //          intersect(state, other) <= narrow(state, other) <= state
-    // For all of the above, this operation returns whether the state changed as a result.
-    // IMPORTANT: The simple fixpoint algorithm only performs UPPER_BOUND, so you do not need to
-    // implement the others if you just use that one. (The more advanced algorithm in
-    // fixpoint_widening.cpp uses all three operations.)
-    bool merge(Merge_op::Type op, AbstractStateDummy const& other) { return false; };
-
-    // Restrict the set of values to the one that allows 'from' to branch towards
-    // 'towards'. Starting with the state when exiting from, this should compute (an upper bound of)
-    // the possible values that would reach the block towards. Doing nothing thus is a valid
-    // implementation.
-    void branch(llvm::BasicBlock const& from, llvm::BasicBlock const& towards) {};
-
-    // Functions to generate the debug output. printIncoming should output the state as of entering
-    // the basic block, printOutcoming the state when leaving it.
-    void printIncoming(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {};
-    void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {};
-};
-
-
-// Run the simple fixpoint algorithm with callstrings. AbstractState should implement the interface 
+// Run the simple fixpoint algorithm with callstrings. AbstractState should implement the interface
 // documented in AbstractStateDummy (no need to subclass or any of that, just implement the methods
 // with the right signatures and take care to fulfil the contracts outlines above).
 // Note that a lot of this code is duplicated in executeFixpointAlgorithmWidening in
@@ -103,7 +21,7 @@ public:
 //  Tip: Look at a diff of fixpoint.cpp and fixpoint_widening.cpp with a visual diff tool (I
 // recommend Meld.)
 template <typename AbstractState>
-void executeFixpointAlgorithm(llvm::Module const& M) {
+void executeFixpointAlgorithmTwoVarEq(llvm::Module const& M) {
     constexpr int iterations_max = 1000;
 
     // A node in the control flow graph, i.e. a basic block. Here, we need a bit of additional data
@@ -219,7 +137,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
 
                     state_new.applyPHINode(*node.bb, predecessors, inst);
 
-                // Handles function calls 
+                // Handles function calls
                 } else if (llvm::CallInst const* call = llvm::dyn_cast<llvm::CallInst>(&inst)) {
 
                     // Checks if an input parameter for the callee is bottom. If so,
@@ -240,7 +158,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                     // Checks whether a node with key [%callee entry block, %caller basic block],
                     // i.e. an entry block with callstring of caller basic block, exists.
                     // If not, all nodes with their corrosponding keys are initilized for the callee function.
-                    if (nodes.find(callee_element) == nodes.end()) { 
+                    if (nodes.find(callee_element) == nodes.end()) {
                         // Check if abstract_state of call.bb is bottom or not
                         dbgs(3) << "    No information regarding function call %" << call->getCalledFunction()->getName() << "\n";
 
@@ -336,26 +254,6 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
     }
 
 }
-
-bool AbstractInterpretationPass::runOnModule(llvm::Module& M) {
-    using AbstractState = AbstractStateValueSet<SimpleInterval>;
-    using AbstractState2 = AbstractStateValueSet<NormalizedConjunction>;
-
-    // Use either the standard fixpoint algorithm or the version with widening
-    // executeFixpointAlgorithm        <AbstractState>(M);
-//    executeFixpointAlgorithmWidening<AbstractState>(M);
-
-    executeFixpointAlgorithmTwoVarEq<AbstractState2>(M);
-
-    // We never change anything
-    return false;
-}
-
-
-void AbstractInterpretationPass::getAnalysisUsage(llvm::AnalysisUsage& info) const {
-    info.setPreservesAll();
-}
-
 
 } /* end of namespace pcpo */
 

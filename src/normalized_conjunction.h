@@ -56,8 +56,12 @@ class NormalizedConjunction {
         static NormalizedConjunction merge(Merge_op::Type op, NormalizedConjunction a, NormalizedConjunction b);
 
         // utils
-        bool isTop() const { return state == TOP; };
-        bool isBottom() const { return state == BOTTOM; };
+        bool isTop() const { return state == TOP; }; /* return equalities.empty() */
+        bool isBottom() const { return state == BOTTOM; }; /* never? */
+        bool isNormalized() const;
+    
+        bool operator==(NormalizedConjunction other) const;
+        bool operator!=(NormalizedConjunction other) const {return !(*this == other);}
     
     private:
         NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties);
@@ -68,5 +72,7 @@ class NormalizedConjunction {
         static NormalizedConjunction Sub(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
 };
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NormalizedConjunction a);
 
 }

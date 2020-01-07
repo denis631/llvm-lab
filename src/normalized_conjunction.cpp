@@ -95,11 +95,8 @@ NormalizedConjunction NormalizedConjunction::interpret(
 
 NormalizedConjunction NormalizedConjunction::refineBranch(llvm::CmpInst::Predicate pred, llvm::Value const& lhs, llvm::Value const& rhs, NormalizedConjunction a, NormalizedConjunction b) {
 
-    // TODO
-    
-    assert(false && "Not implemented");
-    
-    return nullptr;
+    // Do nothing
+    return a;
 }
 
 
@@ -134,12 +131,12 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     std::set<Equality> E1, E2;
 
     auto mapToSeccond = [](std::pair<llvm::Value const*,Equality> p){ return p.second; };
-    std::transform(lhs.equalaties.begin(), lhs.equalaties.end(), std::inserter(E1, E1.end()), mapToSeccond);
-    std::transform(rhs.equalaties.begin(), rhs.equalaties.end(), std::inserter(E2, E2.end()), mapToSeccond);
+    llvm::transform(lhs.equalaties, std::inserter(E1, E1.end()), mapToSeccond);
+    llvm::transform(rhs.equalaties, std::inserter(E2, E2.end()), mapToSeccond);
     
     auto mapToY = [](Equality eq){ return eq.y; };
-    std::transform(E1.begin(), E1.end(), std::inserter(varsE1, varsE1.end()), mapToY);
-    std::transform(E2.begin(), E2.end(), std::inserter(varsE2, varsE2.end()), mapToY);
+    llvm::transform(E1, std::inserter(varsE1, varsE1.end()), mapToY);
+    llvm::transform(E2, std::inserter(varsE2, varsE2.end()), mapToY);
     std::set_union(varsE1.begin(), varsE1.end(), varsE2.begin(), varsE2.end(), std::inserter(vars, vars.end()));
     
     std::set<llvm::Value const*> dX1, dX2;
@@ -388,29 +385,24 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
 
 // [xi := ?]# E = Exists# xi in E
 NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
-    auto result = leastUpperBound(lhs, rhs);
-    
+    auto result = leastUpperBound(lhs, rhs);APInt(64,0);
     auto i = result.equalaties[&inst];
-    if (i.x != &inst && i.a != APInt(64,0)) {
+    if (i.x != &inst && i.b != APInt(64,0)) {
         result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
     } else {
         // find all equations using xi
-        std::map<llvm::Value const*, Equality> X;
         auto predicate = [&i](std::pair<llvm::Value const*, Equality> p){ return p.second.x = i.y;};
-        std::copy_if(result.equalaties.begin(), result.equalaties.end(), std::inserter(X, X.end()), predicate);
-        // pop first element
-        std::pair<llvm::Value const*, Equality> k = *X.begin();
-        X.erase(X.begin());
-        for (auto l: X) {
-            // FIXME: modify result instead of X which will get dropped later and not be used anymore
-            // use std::find_if iterator instead of copy if
-            l.second.a = APInt(64,1);
-            l.second.x = k.second.y;
-            l.second.b = l.second.b - k.second.b;
+        auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), predicate);
+        if (it != result.equalaties.end()) {
+            Equality k = (*it).second;
+            for (it = std::find_if(++it, result.equalaties.end(), predicate);
+                 it != result.equalaties.end();
+                 it = std::find_if(++it, result.equalaties.end(), predicate)) {
+                auto& l = it->second;
+                result.equalaties[l.y] = {l.y, APInt(64,1), k.y, l.b - k.b};
+            }
+            result.equalaties[k.y] = {k.y, APInt(64,1), k.y, APInt(64,0)};
         }
-        k.second.a = APInt(64,1);
-        k.second.x = k.second.y;
-        k.second.b = APInt(64,0);
         result.equalaties[&inst] = {&inst, APInt(64,1), &inst, APInt(64,0)};
     }
     return result;
@@ -505,6 +497,47 @@ NormalizedConjunction NormalizedConjunction::Mul(llvm::Instruction const& inst, 
     
     return result;
 }
+
+// MARK: Utils
+
+bool NormalizedConjunction::isNormalized() const {
+    bool result = true;
+    for (auto eq: equalaties) {
+        if (eq.second.isConstant()) {
+            auto containsY = [&eq](std::pair<llvm::Value const*, Equality> pair){ return pair.second.x == eq.second.y; };
+            result &= llvm::none_of(equalaties, containsY);
+        } else {
+            auto occursElseWhere = [&eq](std::pair<llvm::Value const*, Equality> pair){ return eq.second.y != pair.second.y && eq.second.y == pair.second.x; };
+            result &= llvm::none_of(equalaties, occursElseWhere);
+        }
+    }
+    
+    auto jGreaterI = [](std::pair<llvm::Value const*, Equality> pair){ return pair.second.y > pair.second.x;};
+    result &= llvm::all_of(equalaties, jGreaterI);
+    return result;
+}
+
+// MARK: Operators
+
+bool NormalizedConjunction::operator==(NormalizedConjunction rhs) const {
+    return state == NORMAL
+        ? rhs.state == NORMAL and equalaties == rhs.equalaties
+        : state == rhs.state;
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NormalizedConjunction a) {
+    if (a.isBottom()) {
+        os << "[]";
+    } else if(a.isTop()) {
+        os << "T";
+    } else {
+        for (auto eq: a.equalaties) {
+        os << eq.first << " = " << eq.second.a << " * " << eq.second.x << " + " << eq.second.b;
+        }
+    }
+    return os;
+}
+
 
 }
 
