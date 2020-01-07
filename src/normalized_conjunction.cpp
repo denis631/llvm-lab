@@ -174,9 +174,10 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     std::set<std::pair<Equality, Equality>> differentConstants;
     
     assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
-    
-    for (auto eq1: E1) {
-        for (auto eq2: E2) {
+
+        for (itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
+            auto eq1 = *itE1;
+            auto eq2 = *itE2;
             assert(eq1.y == eq2.y && "left hand side of equations should be the same");
             if (eq1.isConstant() && eq2.isConstant() && eq1.b != eq2.b) {
                 differentConstants.insert({eq1,eq2});
