@@ -9,6 +9,7 @@
 
 #include "global.h"
 #include <map>
+#include <set>
 
 namespace pcpo {
 
@@ -72,6 +73,13 @@ class NormalizedConjunction {
         static NormalizedConjunction Add(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction Sub(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
+    
+        // Helpers
+        static std::set<Equality> computeX0(std::set<Equality> const& E1, std::set<Equality> const& E2);
+        static std::set<Equality> computeX1(std::set<Equality> const& E1, std::set<Equality> const& E2);
+        static std::set<Equality> computeX2(std::set<Equality> const& E1, std::set<Equality> const& E2);
+        static std::set<Equality> computeX3(std::set<Equality> const& E1, std::set<Equality> const E2);
+        static std::set<Equality> computeX4(std::set<Equality> const& E1, std::set<Equality> const& E2);
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NormalizedConjunction a);

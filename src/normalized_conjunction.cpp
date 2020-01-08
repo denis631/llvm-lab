@@ -121,8 +121,220 @@ NormalizedConjunction NormalizedConjunction::merge(Merge_op::Type op, Normalized
     }
 }
 
-    // TODO: getter / setter for equlaties to keep equalaties normalized
+// MARK: Helpers
 
+/// XO / E'0: set of variables where the right hand side in E1 and E2 coincide
+std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX0(std::set<Equality> const& E1, std::set<Equality> const& E2) {
+    std::set<Equality> X0;
+    std::set_intersection(E1.begin(), E1.end(), E2.begin(), E2.end(), std::inserter(X0, X0.end()));
+    // Remove trivial equalities
+    std::set<Equality> filteredX0;
+    auto filterTrivialEqualaties = [](Equality eq){return eq.y != eq.x;};
+    copy_if(X0, std::inserter(filteredX0, filteredX0.end()), filterTrivialEqualaties);
+    
+    return filteredX0;
+}
+
+/// X1 / E'1: set of variables where the right hand side is constant but does not coincide in E1 and E2
+std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX1(std::set<Equality> const& E1, std::set<Equality> const& E2) {
+    std::set<Equality> X1;
+    std::set<std::pair<Equality, Equality>> differentConstants;
+    
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+    
+    for (auto itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
+        auto eq1 = *itE1;
+        auto eq2 = *itE2;
+        assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+        if (eq1.isConstant() && eq2.isConstant() && eq1.b != eq2.b) {
+            differentConstants.insert({eq1,eq2});
+        }
+    }
+    
+    if (!differentConstants.empty()) {
+        // pop first element
+        std::pair<Equality, Equality> h = *differentConstants.begin();
+        differentConstants.erase(differentConstants.begin());
+        
+        for (auto i: differentConstants) {
+            // find a linear equation that contains both points P1(c(1)i, c(1)h) and P2(c(2)i, c(2)h)
+            // y = a * x + b
+            auto y = i.first.y;
+            int64_t a = (h.second.b - h.first.b) / ((i.second.b - i.first.b));
+            auto x = h.first.x;
+            int64_t b = -a * h.first.b + i.first.b;
+            Equality eq = {y, a, x, b};
+            X1.insert(eq);
+        }
+    }
+    return X1;
+}
+
+/// X2 / E'2: set of variables where the right hand side of E1 is constant but the rhs of E2 contains a variable.
+std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::set<Equality> const& E1, std::set<Equality> const& E2) {
+    std::set<Equality> X2;
+    std::set<std::pair<Equality, Equality>> differentConstants;
+    
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+    
+    for (auto eq1: E1) {
+        for (auto eq2: E2) {
+            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+            if (eq1.isConstant() && !eq2.isConstant()) {
+                differentConstants.insert({eq1,eq2});
+            }
+        }
+    }
+    
+    std::vector<std::set<std::pair<Equality, Equality>>> Pi2;
+    
+    // partition differentConstants
+    for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+        std::set<std::pair<Equality, Equality>> equivalenceClass;
+        std::pair<Equality, Equality> ipair = *iterator;
+        equivalenceClass.insert(ipair);
+        iterator++;
+        
+        // FIXME: Make sure this doesnt casue any trouble!
+        for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+            std::pair<Equality, Equality> jpair = *tempit;
+            bool condition1 = ipair.second.x == jpair.second.x;
+            bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
+            if (condition1 && condition2) {
+                equivalenceClass.insert(jpair);
+                differentConstants.erase(tempit);
+            }
+        }
+        Pi2.push_back(equivalenceClass);
+    }
+    
+    // form equaltites for partitions in Pi2
+    for (auto q: Pi2) {
+        auto h = *q.begin();
+        q.erase(q.begin());
+        for (auto i: q) {
+            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
+            auto y = i.first.y;
+            auto m = i.second.a / h.second.b;
+            auto x = h.first.y;
+            auto b = i.second.b - (i.second.a * h.second.b) / h.second.a;
+            Equality eq = {y, m, x, b};
+            X2.insert(eq);
+        }
+    }
+    
+    return X2;
+}
+
+/// X3 / E'3: set of variables where the right hand side of E1 contains a variable and E2 contains a constant.
+std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX3(std::set<Equality> const& E1, std::set<Equality> const E2) {
+    std::set<Equality> X3;
+    std::set<std::pair<Equality, Equality>> differentConstants;
+    
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+    
+    for (auto eq1: E1) {
+        for (auto eq2: E2) {
+            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+            if (!eq1.isConstant() && eq2.isConstant()) {
+                differentConstants.insert({eq1,eq2});
+            }
+        }
+    }
+    
+    std::vector<std::set<std::pair<Equality, Equality>>> Pi3;
+    
+    // partition differentConstants
+    for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+        std::set<std::pair<Equality, Equality>> equivalenceClass;
+        std::pair<Equality, Equality> ipair = *iterator;
+        equivalenceClass.insert(ipair);
+        iterator++;
+        // FIXME: Make sure this doesnt casue any trouble!
+        for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+            std::pair<Equality, Equality> jpair = *tempit;
+            bool condition1 = ipair.second.x == jpair.second.x;
+            bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
+            if (condition1 && condition2) {
+                equivalenceClass.insert(jpair);
+                differentConstants.erase(tempit);
+            }
+        }
+        Pi3.push_back(equivalenceClass);
+    }
+    
+    // form equaltites for partitions in Pi3
+    for (auto q: Pi3) {
+        auto h = *q.begin();
+        q.erase(q.begin());
+        for (auto i: q) {
+            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
+            auto y = i.first.y;
+            auto m = i.second.a / (h.second.b);
+            auto x = h.first.y;
+            auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
+            Equality eq = {y, m, x, b};
+            X3.insert(eq);
+        }
+    }
+    
+    return X3;
+}
+
+std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::set<Equality> const& E1, std::set<Equality> const& E2) {
+    std::set<Equality> X4;
+    std::set<std::pair<Equality, Equality>> differentConstants;
+    
+    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
+    
+    for (auto eq1: E1) {
+        for (auto eq2: E2) {
+            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+            if (!eq1.isConstant() && !eq2.isConstant()) {
+                differentConstants.insert({eq1,eq2});
+            }
+        }
+    }
+    
+    std::vector<std::set<std::pair<Equality, Equality>>> Pi4;
+    
+    // partition differentConstants
+    for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+        std::set<std::pair<Equality, Equality>> equivalenceClass;
+        std::pair<Equality, Equality> ipair = *iterator;
+        equivalenceClass.insert(ipair);
+        iterator++;
+        // FIXME: Make sure this doesnt casue any trouble!
+        for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+            std::pair<Equality, Equality> jpair = *tempit;
+            bool condition1 = ipair.first.x == jpair.first.x && ipair.second.x == jpair.second.x;
+            bool condition2 = ipair.second.a / (ipair.first.a) == jpair.second.a / (jpair.first.a);
+            bool condition3 = (ipair.first.b - ipair.second.b) / (ipair.first.a) == (jpair.first.b - jpair.second.b) / (jpair.first.a);
+            if (condition1 && condition2 && condition3) {
+                equivalenceClass.insert(jpair);
+                differentConstants.erase(tempit);
+            }
+        }
+        Pi4.push_back(equivalenceClass);
+    }
+    
+    // form equaltites for partitions in Pi4
+    for (auto q: Pi4) {
+        auto h = *q.begin();
+        q.erase(q.begin());
+        for (auto i: q) {
+            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
+            auto y = i.first.y;
+            auto m = i.second.a / (h.second.b);
+            auto x = h.first.y;
+            auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
+            Equality eq = {y, m, x, b};
+            X4.insert(eq);
+        }
+    }
+    
+    return X4;
+}
 
 // MARK: Lattice Operations
     
@@ -158,218 +370,16 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     }
     
     // XO / E'0: set of variables where the right hand side in E1 and E2 coincide
-    std::set<Equality> X0;
-    {
-    std::set_intersection(E1.begin(), E1.end(), E2.begin(), E2.end(), std::inserter(X0, X0.end()));
+    std::set<Equality> X0 = computeX0(E1, E2);
     
-    // Remove trivial equalities
-    std::set<Equality> filteredX0;
-    auto filterTrivialEqualaties = [](Equality eq){return eq.y != eq.x;};
-    copy_if(X0, std::inserter(filteredX0, filteredX0.end()), filterTrivialEqualaties);
-    X0 = filteredX0;
-    
-    }
-    // X1 / E'1: set of variables where the right hand side is constant but does not coincide in E1 and E2
-    std::set<Equality> X1;
-    {
-    std::set<std::pair<Equality, Equality>> differentConstants;
-    
-    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
 
-        for (itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
-            auto eq1 = *itE1;
-            auto eq2 = *itE2;
-            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-            if (eq1.isConstant() && eq2.isConstant() && eq1.b != eq2.b) {
-                differentConstants.insert({eq1,eq2});
-            }
-        }
-        
-        if (!differentConstants.empty()) {
-            // pop first element
-            std::pair<Equality, Equality> h = *differentConstants.begin();
-            differentConstants.erase(differentConstants.begin());
-            
-            for (auto i: differentConstants) {
-                // find a linear equation that contains both points P1(c(1)i, c(1)h) and P2(c(2)i, c(2)h)
-                // y = m * x + b
-                auto y = i.first.y;
-                int64_t m = (h.second.b - h.first.b) / ((i.second.b - i.first.b));
-                auto x = h.first.x;
-                int64_t b = -m * h.first.b + i.first.b;
-                Equality eq = {y, m, x, b};
-                X1.insert(eq);
-            }
-        }
-
-    }
-    // X2 / E'2: set of variables where the right hand side of E1 is constant but the rhs of E2 contains a variable.
-    std::set<Equality> X2;
-    {
-    std::set<std::pair<Equality, Equality>> differentConstants;
-
-    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
-
-    for (auto eq1: E1) {
-        for (auto eq2: E2) {
-            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-            if (eq1.isConstant() && !eq2.isConstant()) {
-                differentConstants.insert({eq1,eq2});
-            }
-        }
-    }
-    
-    std::vector<std::set<std::pair<Equality, Equality>>> Pi2;
-    
-        // partition differentConstants
-        for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
-            std::set<std::pair<Equality, Equality>> equivalenceClass;
-            std::pair<Equality, Equality> ipair = *iterator;
-            equivalenceClass.insert(ipair);
-            iterator++;
-            
-            // FIXME: Make sure this doesnt casue any trouble!
-            for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
-                std::pair<Equality, Equality> jpair = *tempit;
-                bool condition1 = ipair.second.x == jpair.second.x;
-                bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
-                if (condition1 && condition2) {
-                    equivalenceClass.insert(jpair);
-                    differentConstants.erase(tempit);
-                }
-            }
-            Pi2.push_back(equivalenceClass);
-    }
-
-    // form equaltites for partitions in Pi2
-    for (auto q: Pi2) {
-        std::pair<Equality, Equality> h = *q.begin();
-        q.erase(q.begin());
-        for (auto i: q) {
-            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
-            auto y = i.first.y;
-            auto m = i.second.a / h.second.b;
-            auto x = h.first.y;
-            auto b = i.second.b - (i.second.a * h.second.b) / h.second.a;
-            Equality eq = {y, m, x, b};
-            X2.insert(eq);
-        }
-    }
-    
-    }
-    // X3 / E'3: set of variables where the right hand side of E1 contains a variable and E2 contains a constant.
-    std::set<Equality> X3;
-    {
-    std::set<std::pair<Equality, Equality>> differentConstants;
-
-    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
-
-    for (auto eq1: E1) {
-        for (auto eq2: E2) {
-            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-            if (!eq1.isConstant() && eq2.isConstant()) {
-                differentConstants.insert({eq1,eq2});
-            }
-        }
-    }
-    
-    std::vector<std::set<std::pair<Equality, Equality>>> Pi3;
-    
-        // partition differentConstants
-        for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
-            std::set<std::pair<Equality, Equality>> equivalenceClass;
-            std::pair<Equality, Equality> ipair = *iterator;
-            equivalenceClass.insert(ipair);
-            iterator++;
-            // FIXME: Make sure this doesnt casue any trouble!
-            for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
-                std::pair<Equality, Equality> jpair = *tempit;
-                bool condition1 = ipair.second.x == jpair.second.x;
-                bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
-                if (condition1 && condition2) {
-                    equivalenceClass.insert(jpair);
-                    differentConstants.erase(tempit);
-                }
-            }
-            Pi3.push_back(equivalenceClass);
-    }
-
-    // form equaltites for partitions in Pi3
-    for (auto q: Pi3) {
-        std::pair<Equality, Equality> h = *q.begin();
-        q.erase(q.begin());
-        for (auto i: q) {
-            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
-            auto y = i.first.y;
-            auto m = i.second.a / (h.second.b);
-            auto x = h.first.y;
-            auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
-            Equality eq = {y, m, x, b};
-            X3.insert(eq);
-        }
-    }
-    
-    }
-    
-    
-    // X4 / E'4:
-    std::set<Equality> X4;
-    {
-        std::set<std::pair<Equality, Equality>> differentConstants;
-
-        assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
-
-        for (auto eq1: E1) {
-            for (auto eq2: E2) {
-                assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-                if (!eq1.isConstant() && !eq2.isConstant()) {
-                    differentConstants.insert({eq1,eq2});
-                }
-            }
-        }
-        
-        std::vector<std::set<std::pair<Equality, Equality>>> Pi4;
-        
-        // partition differentConstants
-        for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
-            std::set<std::pair<Equality, Equality>> equivalenceClass;
-            std::pair<Equality, Equality> ipair = *iterator;
-            equivalenceClass.insert(ipair);
-            iterator++;
-            // FIXME: Make sure this doesnt casue any trouble!
-            for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
-                std::pair<Equality, Equality> jpair = *tempit;
-                bool condition1 = ipair.first.x == jpair.first.x && ipair.second.x == jpair.second.x;
-                bool condition2 = ipair.second.a / (ipair.first.a) == jpair.second.a / (jpair.first.a);
-                bool condition3 = (ipair.first.b - ipair.second.b) / (ipair.first.a) == (jpair.first.b - jpair.second.b) / (jpair.first.a);
-                if (condition1 && condition2 && condition3) {
-                    equivalenceClass.insert(jpair);
-                    differentConstants.erase(tempit);
-                }
-            }
-            Pi4.push_back(equivalenceClass);
-        }
-        
-        // form equaltites for partitions in Pi4
-        for (auto q: Pi4) {
-            std::pair<Equality, Equality> h = *q.begin();
-            q.erase(q.begin());
-            for (auto i: q) {
-                // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
-                auto y = i.first.y;
-                auto m = i.second.a / (h.second.b);
-                auto x = h.first.y;
-                auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
-                Equality eq = {y, m, x, b};
-                X3.insert(eq);
-            }
-        }
-        
-        
-    }
+    // FIXME: function computeX2(a,b) == computeX3(b,a) remove one of them
+    std::set<Equality> X1 = computeX1(E1, E2);
+    std::set<Equality> X2 = computeX2(E1, E2);
+    std::set<Equality> X3 = computeX3(E1, E2);
+    std::set<Equality> X4 = computeX4(E1, E2);
     
     // E1 U E2 = E'0 AND E'1 AND E'2 AND E'3 AND E'4
-    
     
     std::set<Equality> leastUpperBound;
     leastUpperBound.insert(X0.begin(), X0.end());
@@ -542,7 +552,4 @@ raw_ostream& operator<<(raw_ostream& os, NormalizedConjunction a) {
     return os;
 }
 
-
 }
-
-
