@@ -17,7 +17,6 @@ NormalizedConjunction::NormalizedConjunction(Constant const& constant) {
     } else {
         state = TOP;
     }
-    
 }
 
 NormalizedConjunction::NormalizedConjunction(std::map<Value const*, Equality> equalaties) {
@@ -95,7 +94,6 @@ NormalizedConjunction NormalizedConjunction::interpret(
 }
 
 NormalizedConjunction NormalizedConjunction::refineBranch(CmpInst::Predicate pred, Value const& lhs, Value const& rhs, NormalizedConjunction a, NormalizedConjunction b) {
-
     // Do nothing
     return a;
 }
@@ -368,8 +366,6 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     
     // XO / E'0: set of variables where the right hand side in E1 and E2 coincide
     std::set<Equality> X0 = computeX0(E1, E2);
-    
-
     // FIXME: function computeX2(a,b) == computeX3(b,a) remove one of them
     std::set<Equality> X1 = computeX1(E1, E2);
     std::set<Equality> X2 = computeX2(E1, E2);
@@ -399,6 +395,7 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
 NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
+    
     if (i.x != &inst && i.b != 0) {
         result.equalaties[&inst] = {&inst, 1, &inst, 0};
     } else {
@@ -424,10 +421,8 @@ NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Instructi
 NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
-    
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
-    
     Value const* j;
     ConstantInt const* b;
     
@@ -453,8 +448,6 @@ NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  Norma
             auto k = kpair.second;
             result.equalaties[k.y] = {k.y, 1, i.y, k.b - i.b - jj.b};
         }
-    
-        auto bitWidht = std::max(i.b, jj.b);
         result.equalaties[jj.y] = {jj.y, 1, i.y, -i.b - jj.b};
     }
     
@@ -465,10 +458,8 @@ NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  Norma
 NormalizedConjunction NormalizedConjunction::Sub(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
-    
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
-    
     Value const* j;
     ConstantInt const* b;
     
@@ -495,7 +486,6 @@ NormalizedConjunction NormalizedConjunction::Sub(Instruction const& inst, Normal
         }
         result.equalaties[jj.y] = {jj.y, 1, i.y, i.b - jj.b};
     }
-    
     return result;
 }
 
