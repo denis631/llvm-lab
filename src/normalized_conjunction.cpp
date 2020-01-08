@@ -177,12 +177,12 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
     
     assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
     
-    for (auto eq1: E1) {
-        for (auto eq2: E2) {
-            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-            if (eq1.isConstant() && !eq2.isConstant()) {
-                differentConstants.insert({eq1,eq2});
-            }
+    for (auto itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
+        auto eq1 = *itE1;
+        auto eq2 = *itE2;
+        assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+        if (eq1.isConstant() && !eq2.isConstant()) {
+            differentConstants.insert({eq1,eq2});
         }
     }
     
@@ -222,7 +222,6 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
             X2.insert(eq);
         }
     }
-    
     return X2;
 }
 
@@ -233,12 +232,12 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX3(std::
     
     assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
     
-    for (auto eq1: E1) {
-        for (auto eq2: E2) {
-            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-            if (!eq1.isConstant() && eq2.isConstant()) {
-                differentConstants.insert({eq1,eq2});
-            }
+    for (auto itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
+        auto eq1 = *itE1;
+        auto eq2 = *itE2;
+        assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+        if (!eq1.isConstant() && eq2.isConstant()) {
+            differentConstants.insert({eq1,eq2});
         }
     }
     
@@ -277,7 +276,6 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX3(std::
             X3.insert(eq);
         }
     }
-    
     return X3;
 }
 
@@ -287,12 +285,12 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::
     
     assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
     
-    for (auto eq1: E1) {
-        for (auto eq2: E2) {
-            assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-            if (!eq1.isConstant() && !eq2.isConstant()) {
-                differentConstants.insert({eq1,eq2});
-            }
+    for (auto itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
+        auto eq1 = *itE1;
+        auto eq2 = *itE2;
+        assert(eq1.y == eq2.y && "left hand side of equations should be the same");
+        if (!eq1.isConstant() && !eq2.isConstant()) {
+            differentConstants.insert({eq1,eq2});
         }
     }
     
@@ -332,7 +330,6 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::
             X4.insert(eq);
         }
     }
-    
     return X4;
 }
 
