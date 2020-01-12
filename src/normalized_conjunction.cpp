@@ -12,7 +12,7 @@ NormalizedConjunction::NormalizedConjunction(Constant const& constant) {
     if (ConstantInt const* c = dyn_cast<ConstantInt>(&constant)) {
         state = NORMAL;
         // Watch out for signed/unsigend APInts in future
-        Equality eq = {&constant, 0, nullptr, c->getValue().getSExtValue()};
+        Equality eq = {&constant, 1, nullptr, c->getValue().getSExtValue()};
         equalaties = {{&constant,eq}};
     } else {
         state = TOP;
@@ -248,13 +248,15 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX3(std::
         equivalenceClass.insert(ipair);
         iterator++;
         // FIXME: Make sure this doesnt casue any trouble!
-        for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
+        for (auto tempit = iterator; tempit != differentConstants.end();) {
             std::pair<Equality, Equality> jpair = *tempit;
             bool condition1 = ipair.second.x == jpair.second.x;
             bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
             if (condition1 && condition2) {
                 equivalenceClass.insert(jpair);
-                differentConstants.erase(tempit);
+                differentConstants.erase(tempit++);
+            } else {
+                tempit++;
             }
         }
         Pi3.push_back(equivalenceClass);
@@ -389,13 +391,13 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     return NormalizedConjunction(result);
 }
 
-// MARK: Abstract Operations
+// MARK: Abstract Assignments
 
 // [xi := ?]# E = Exists# xi in E
 NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto i = result.equalaties[&inst];
-    
+
     if (i.x != &inst && i.b != 0) {
         result.equalaties[&inst] = {&inst, 1, &inst, 0};
     } else {
@@ -417,41 +419,83 @@ NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Instructi
     return result;
 }
 
-// TODO: [xi := xj + x]
+/// [xi := ?]
+NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(NormalizedConjunction E, Value const* xi) {
+    assert(xi != nullptr && "xi cannot be NULL");
+    auto i = E.equalaties[xi];
+    
+    if (xi != i.x && i.b != 0) {
+        E.equalaties[xi] = {xi, 1, xi, 0};
+    } else {
+        // find all equations using xi
+        auto predicate = [&i](std::pair<Value const*, Equality> p){ return p.second.x = i.y;};
+        auto it = std::find_if(E.equalaties.begin(), E.equalaties.end(), predicate);
+        if (it != E.equalaties.end()) {
+            Equality k = (*it).second;
+            for (it = std::find_if(++it, E.equalaties.end(), predicate);
+                 it != E.equalaties.end();
+                 it = std::find_if(++it, E.equalaties.end(), predicate)) {
+                auto& l = it->second;
+                E.equalaties[l.y] = {l.y, 1, k.y, l.b - k.b};
+            }
+            E.equalaties[k.y] = {k.y, 1, k.y, 0};
+        }
+        E.equalaties[xi] = {xi, 1, xi, 0};
+    }
+    return E;
+}
+
+/// [xi := a * xj + b]
+NormalizedConjunction NormalizedConjunction::linearAssignment(NormalizedConjunction E, Value const* xi, int64_t a, Value const* xj, int64_t b) {
+    assert(xi != nullptr && "xi cannot be NULL");
+
+    // make sure xj exists
+    auto xjS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].x : nullptr;
+    auto bS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].b : 0;
+    
+    if (xi > xjS) {
+        E.equalaties[xi] = {xi, a, xjS, bS + b};
+        return E;
+    } else {
+        auto pred = [&xjS](std::pair<Value const*, Equality> p){ return p.second.x == xjS && p.second.y != xjS; };
+        for (auto xk: make_filter_range(E.equalaties, pred)) {
+            E.equalaties[xk.second.y] = {xk.second.y, a, xi, xk.second.b - b - bS};
+        }
+        E.equalaties[xjS] = {xjS, a, xi, -b - bS};
+    }
+    return E;
+}
+
+// MARK: Abstract Operations
+
+// [xi := xj + c]
+// [xi := xj + xk]
+// [xi := cj + ck]
 NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
-    auto i = result.equalaties[&inst];
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
-    Value const* j;
-    ConstantInt const* b;
     
     if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
-        b = dyn_cast<ConstantInt>(op1);
-        j = op2;
+        auto b = dyn_cast<ConstantInt>(op1);
+        return linearAssignment(result, &inst, 1, op2, b->getSExtValue());
     } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
-        b = dyn_cast<ConstantInt>(op2);
-        j = op1;
-    } else {
-        assert(false && "One operand has to be constant");
-    }
-    
-    auto jj = result.equalaties[j];
-    
-    if (i > jj) {
-        result.equalaties[i.y] = {i.y, 1, jj.x, i.b + jj.b};;
-    } else {
-        // Filter results
-        auto pred = [&jj](std::pair<Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
-        
-        for (auto kpair: make_filter_range(result.equalaties, pred)) {
-            auto k = kpair.second;
-            result.equalaties[k.y] = {k.y, 1, i.y, k.b - i.b - jj.b};
+        auto b = dyn_cast<ConstantInt>(op2);
+        return linearAssignment(result, &inst, 1, op1, b->getSExtValue());
+    } else if (isa<Value>(op1) && isa<Value>(op2)) {
+        if (result.equalaties[op1].isConstant()) {
+            return linearAssignment(result, &inst, 1, op2, result.equalaties[op1].b);
+        } else if (result.equalaties[op2].isConstant()) {
+            return linearAssignment(result, &inst, 1, op1, result.equalaties[op2].b);
+        } else {
+            return nonDeterminsticAssignment(inst, lhs, rhs);
         }
-        result.equalaties[jj.y] = {jj.y, 1, i.y, -i.b - jj.b};
+    } else if (isa<ConstantInt>(op1) && (isa<ConstantInt>(op2))) {
+        return linearAssignment(result, &inst, 1, nullptr, result.equalaties[op1].b + result.equalaties[op2].b);
+    } else {
+        assert(false);
+        return nonDeterminsticAssignment(inst, lhs, rhs);
     }
-    
-    return result;
 }
 
 // TODO: [xi := xj - x]
@@ -533,7 +577,32 @@ raw_ostream& operator<<(raw_ostream& os, NormalizedConjunction a) {
         os << "T";
     } else {
         for (auto eq: a.equalaties) {
-        os << eq.first << " = " << eq.second.a << " * " << eq.second.x << " + " << eq.second.b;
+        // FIXME: Hanlde nullptr
+            
+            if (eq.second.y != nullptr && eq.second.y->hasName()) {
+                os << eq.second.y->getName() << " = ";
+            } else if (eq.second.y != nullptr) {
+                os << eq.second.y << " = ";
+            } else {
+                os << "<null> = ";
+            }
+            
+            if (eq.second.x != nullptr) {
+                if (eq.second.x->hasName()) {
+                    os << eq.second.a << " * " << eq.second.x->getName();
+                } else {
+                    os << eq.second.a << " * " << eq.second.x;
+                }
+                if (eq.second.b > 0) {
+                    os << " + " << eq.second.b;
+                } else if (eq.second.b < 0) {
+                    os << eq.second.b;
+                }
+            } else {
+                os << eq.second.b;
+            }
+        
+            os << "\n";            
         }
     }
     return os;

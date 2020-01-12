@@ -62,6 +62,7 @@ class NormalizedConjunction {
         bool isBottom() const { return state == BOTTOM; }; /* never? */
         bool isNormalized() const;
     
+        // TODO: [] operator ?
         bool operator==(NormalizedConjunction other) const;
         bool operator!=(NormalizedConjunction other) const {return !(*this == other);}
     
@@ -69,7 +70,12 @@ class NormalizedConjunction {
         NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties);
 
         static NormalizedConjunction leastUpperBound(NormalizedConjunction E1, NormalizedConjunction E2);
+    
+        // Assignments
         static NormalizedConjunction nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
+        static NormalizedConjunction linearAssignment(NormalizedConjunction E, llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
+        static NormalizedConjunction nonDeterminsticAssignment(NormalizedConjunction E, llvm::Value const* xi);
+
         static NormalizedConjunction Add(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction Sub(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
