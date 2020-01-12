@@ -1,8 +1,7 @@
-
 #include <cstdio>
 #include <cstdint>
 
-#include "simple_interval.h"
+#include "../src/simple_interval.h"
 
 // Standard integer types
 using s64 = std::int64_t;
@@ -229,19 +228,17 @@ void testSimpleDomain(u32 w, u32 iters, u64* errs) {
 u64 error_count;
 int main() {
     using namespace pcpo;
-    u64 iters = 64;
+    u64 iters = 512;
 
     // Use this to reproduce a failing example more quickly. Simply insert the
     // last random hash the script outputs and the correct bitwidth.
     //rand_state = 0xe596fd2a27fe71c7ull;
     //testSimpleDomain(16, iters, &error_count);
     
-    while (true) {
-        testSimpleDomain( 8, iters, &error_count);
-        testSimpleDomain(16, iters, &error_count);
-        testSimpleDomain(17, iters, &error_count);
-        testSimpleDomain(32, iters, &error_count);
-        testSimpleDomain(64, iters, &error_count);
-        iters *= 2;
-    }
+    testSimpleDomain( 8, iters, &error_count);
+    testSimpleDomain(16, iters, &error_count);
+    testSimpleDomain(17, iters, &error_count);
+    testSimpleDomain(32, iters, &error_count);
+    testSimpleDomain(64, iters, &error_count);
+    iters *= 2;
 }
