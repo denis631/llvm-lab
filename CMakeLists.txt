@@ -139,7 +139,7 @@ target_link_libraries(simple_interval_test
 enable_testing()
 
 add_test(NAME intervalAnalysisTest
-  COMMAND opt --load $<TARGET_FILE:llvm-pain> --painpass -S /Users/tim/Developer/ba/llvm-abstractinterpretation/output/add-1.c.ll
+  COMMAND opt --load $<TARGET_FILE:llvm-pain> --painpass -S ${CMAKE_SOURCE_DIR}/output/add-1.c.ll
 )
 
 add_test(NAME simpleIntervalTest
