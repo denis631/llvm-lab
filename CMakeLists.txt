@@ -78,6 +78,8 @@ else()
     "${PATH_TO_LLVM}/cmake/modules"
   )
 
+  set(LLVM_MAIN_SRC_DIR ${PATH_TO_LLVM})
+
 endif()
 
 include(LLVM-Config)
