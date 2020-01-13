@@ -30,11 +30,27 @@ class NormalizedConjunction {
             int64_t b;
             
             inline bool operator<(Equality const& rhs) const {
-                return y < rhs.y;
+                if (y == rhs.y) {
+                    if (a == rhs.a) {
+                        if (x == rhs.x) {
+                            if (b == rhs.b) {
+                                return false;
+                            } else {
+                                return b < rhs.b;
+                            }
+                        } else {
+                            return x < rhs.x;
+                        }
+                    } else {
+                        return a < rhs.a;
+                    }
+                } else {
+                    return y < rhs.y;
+                }
             };
             
             inline bool operator>(Equality const& rhs) const {
-                return y > rhs.y;
+                return *this < rhs;
             };
             
             inline bool operator==(Equality const& rhs) const {
@@ -69,7 +85,6 @@ class NormalizedConjunction {
         bool operator!=(NormalizedConjunction other) const {return !(*this == other);}
     
     private:
-    
         // Assignments
         static NormalizedConjunction nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction linearAssignment(NormalizedConjunction E, llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
@@ -80,6 +95,7 @@ class NormalizedConjunction {
         static NormalizedConjunction Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
     
         // Helpers
+    protected:
         static std::set<Equality> computeX0(std::set<Equality> const& E1, std::set<Equality> const& E2);
         static std::set<Equality> computeX1(std::set<Equality> const& E1, std::set<Equality> const& E2);
         static std::set<Equality> computeX2(std::set<Equality> const& E1, std::set<Equality> const& E2);

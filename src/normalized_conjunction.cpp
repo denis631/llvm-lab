@@ -127,7 +127,7 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX0(std::
     std::set_intersection(E1.begin(), E1.end(), E2.begin(), E2.end(), std::inserter(X0, X0.end()));
     // Remove trivial equalities
     std::set<Equality> filteredX0;
-    auto filterTrivialEqualaties = [](Equality eq){return eq.y != eq.x;};
+    auto filterTrivialEqualaties = [](Equality eq){ return eq.y != eq.x;};
     copy_if(X0, std::inserter(filteredX0, filteredX0.end()), filterTrivialEqualaties);
     
     return filteredX0;
@@ -158,8 +158,8 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX1(std::
             // find a linear equation that contains both points P1(c(1)i, c(1)h) and P2(c(2)i, c(2)h)
             // y = a * x + b
             auto y = i.first.y;
-            int64_t a = (h.second.b - h.first.b) / ((i.second.b - i.first.b));
-            auto x = h.first.x;
+            int64_t a = ((i.second.b - i.first.b)) / (h.second.b - h.first.b);
+            auto x = h.first.y;
             int64_t b = -a * h.first.b + i.first.b;
             Equality eq = {y, a, x, b};
             X1.insert(eq);
