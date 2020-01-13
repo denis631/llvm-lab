@@ -136,6 +136,21 @@ target_link_libraries(simple_interval_test
    ${LLVM_AVAILABLE_LIBS}
 )
 
+add_llvm_executable(normalized_conjunction_test
+   test/normalized_conjunction_test.cpp
+   ${pain_sources}
+   DEPENDS
+   intrinsics_gen
+)
+
+ target_include_directories(normalized_conjunction_test PRIVATE
+   ${LLVM_INCLUDE_DIRS}
+)
+
+target_link_libraries(normalized_conjunction_test
+   ${LLVM_AVAILABLE_LIBS}
+)
+
 enable_testing()
 
 add_test(NAME intervalAnalysisTest
@@ -144,4 +159,8 @@ add_test(NAME intervalAnalysisTest
 
 add_test(NAME simpleIntervalTest
    COMMAND simple_interval_test
+)
+
+add_test(NAME normalizedConjunctionTest
+   COMMAND normalized_conjunction_test
 )

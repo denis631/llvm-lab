@@ -47,6 +47,7 @@ class NormalizedConjunction {
 
         // AbstractDomain interface
         NormalizedConjunction(bool isTop = false): state{isTop ? TOP : BOTTOM} {}
+        NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties);
         NormalizedConjunction(llvm::Constant const& constant);
         static NormalizedConjunction interpret(
             llvm::Instruction const& inst, std::vector<NormalizedConjunction> const& operands
@@ -56,7 +57,8 @@ class NormalizedConjunction {
             NormalizedConjunction a, NormalizedConjunction b
         );
         static NormalizedConjunction merge(Merge_op::Type op, NormalizedConjunction a, NormalizedConjunction b);
-
+        static NormalizedConjunction leastUpperBound(NormalizedConjunction E1, NormalizedConjunction E2);
+    
         // utils
         bool isTop() const { return state == TOP; }; /* return equalities.empty() */
         bool isBottom() const { return state == BOTTOM; }; /* never? */
@@ -67,9 +69,6 @@ class NormalizedConjunction {
         bool operator!=(NormalizedConjunction other) const {return !(*this == other);}
     
     private:
-        NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties);
-
-        static NormalizedConjunction leastUpperBound(NormalizedConjunction E1, NormalizedConjunction E2);
     
         // Assignments
         static NormalizedConjunction nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
