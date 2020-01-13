@@ -186,7 +186,6 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
     
     std::vector<std::set<std::pair<Equality, Equality>>> Pi2;
     
-    
     for (auto jt = differentConstants.begin(); jt != differentConstants.end();) {
         std::set<std::pair<Equality, Equality>> equivalenceClass;
         auto j = *jt;
@@ -194,7 +193,6 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
         jt = differentConstants.erase(jt);
         
         // partition differentConstants
-        // FIXME: performance can be increase by remoing i after assigning it to a equivalence class
         for (auto it = jt; it != differentConstants.end(); ) {
             auto i = *it;
             bool condition1 = i.second.x == j.second.x;
@@ -226,62 +224,6 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
         }
     }
     return X2;
-}
-
-/// X3 / E'3: set of variables where the right hand side of E1 contains a variable and E2 contains a constant.
-std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX3(std::set<Equality> const& E1, std::set<Equality> const E2) {
-    std::set<Equality> X3;
-    std::set<std::pair<Equality, Equality>> differentConstants;
-    
-    assert(E1.size() == E2.size() && "E1 and E2 should have the same set of variables in the same order");
-    
-    for (auto itE1 = E1.begin(), itE2 = E2.begin(); itE1 != E1.end() && itE2 != E2.end(); ++itE1, ++itE2) {
-        auto eq1 = *itE1;
-        auto eq2 = *itE2;
-        assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-        if (!eq1.isConstant() && eq2.isConstant()) {
-            differentConstants.insert({eq1,eq2});
-        }
-    }
-    
-    std::vector<std::set<std::pair<Equality, Equality>>> Pi3;
-    
-    // partition differentConstants
-    for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
-        std::set<std::pair<Equality, Equality>> equivalenceClass;
-        std::pair<Equality, Equality> ipair = *iterator;
-        equivalenceClass.insert(ipair);
-        iterator++;
-        // FIXME: Make sure this doesnt casue any trouble!
-        for (auto tempit = iterator; tempit != differentConstants.end();) {
-            std::pair<Equality, Equality> jpair = *tempit;
-            bool condition1 = ipair.second.x == jpair.second.x;
-            bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
-            if (condition1 && condition2) {
-                equivalenceClass.insert(jpair);
-                differentConstants.erase(tempit++);
-            } else {
-                tempit++;
-            }
-        }
-        Pi3.push_back(equivalenceClass);
-    }
-    
-    // form equaltites for partitions in Pi3
-    for (auto q: Pi3) {
-        auto h = *q.begin();
-        q.erase(q.begin());
-        for (auto i: q) {
-            // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
-            auto y = i.first.y;
-            auto m = i.second.a / (h.second.b);
-            auto x = h.first.y;
-            auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
-            Equality eq = {y, m, x, b};
-            X3.insert(eq);
-        }
-    }
-    return X3;
 }
 
 std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::set<Equality> const& E1, std::set<Equality> const& E2) {
@@ -380,7 +322,7 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
     // FIXME: function computeX2(a,b) == computeX3(b,a) remove one of them
     std::set<Equality> X1 = computeX1(E1, E2);
     std::set<Equality> X2 = computeX2(E1, E2);
-    std::set<Equality> X3 = computeX3(E1, E2);
+    std::set<Equality> X3 = computeX2(E2, E1);
     std::set<Equality> X4 = computeX4(E1, E2);
     
     // E1 U E2 = E'0 AND E'1 AND E'2 AND E'3 AND E'4

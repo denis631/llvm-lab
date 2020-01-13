@@ -103,7 +103,6 @@ class NormalizedConjunction {
         static std::set<Equality> computeX0(std::set<Equality> const& E1, std::set<Equality> const& E2);
         static std::set<Equality> computeX1(std::set<Equality> const& E1, std::set<Equality> const& E2);
         static std::set<Equality> computeX2(std::set<Equality> const& E1, std::set<Equality> const& E2);
-        static std::set<Equality> computeX3(std::set<Equality> const& E1, std::set<Equality> const E2);
         static std::set<Equality> computeX4(std::set<Equality> const& E1, std::set<Equality> const& E2);
 };
 

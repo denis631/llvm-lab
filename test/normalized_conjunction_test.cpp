@@ -168,6 +168,6 @@ int main() {
              && NormalizedConjunctionTest::runTestX1()
              && NormalizedConjunctionTest::runTestX2()
              && NormalizedConjunctionTest::runTestX4()
-//             && NormalizedConjunctionTest::runTestAll()
+             && NormalizedConjunctionTest::runTestAll()
              );
 }
