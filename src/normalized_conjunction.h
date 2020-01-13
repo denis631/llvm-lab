@@ -57,6 +57,10 @@ class NormalizedConjunction {
                 return y == rhs.y && a == rhs.a && x == rhs.x && b == rhs.b;
             };
             
+            inline bool operator!=(Equality const& rhs) const {
+                return !(*this == rhs);
+            };
+            
             bool isConstant() const { return x == nullptr; };
         };
         std::map<llvm::Value const*, Equality> equalaties;

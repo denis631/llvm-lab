@@ -77,9 +77,9 @@ bool NormalizedConjunctionTest::runTestAll() {
         {x12, {x12, 2, x11, 1}}
     };
     
-    NormalizedConjunction leastUpperBound = NormalizedConjunction::leastUpperBound(NormalizedConjunction(E1), NormalizedConjunction(E2));
+    auto actual = NormalizedConjunction::leastUpperBound(NormalizedConjunction(E1), NormalizedConjunction(E2));
     
-    result = leastUpperBound.equalaties == expected;
+    result = actual.equalaties == expected;
     
     std::cout << (result? "success" : "failed") << "\n";
     return result;
@@ -127,9 +127,17 @@ bool NormalizedConjunctionTest::runTestX2() {
     std::cout << "Testing X2: ";
     bool result = false;
     
-    std::map<Value const*, NormalizedConjunction::Equality> expected = {
-        
+    std::set<NormalizedConjunction::Equality> expected = {
+        {x12, 2, x11, 1}
     };
+    
+    std::set<NormalizedConjunction::Equality> E1Set, E2Set;
+    transform(E1, std::inserter(E1Set, E1Set.end()), mapToSeccond);
+    transform(E2, std::inserter(E2Set, E2Set.end()), mapToSeccond);
+    
+    auto actual = NormalizedConjunctionTest::computeX2(E1Set, E2Set);
+    
+    result = actual == expected;
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
@@ -138,10 +146,18 @@ bool NormalizedConjunctionTest::runTestX4() {
     std::cout << "Testing X4: ";
     bool result = false;
     
-    std::map<Value const*, NormalizedConjunction::Equality> expected = {
-        
+    std::set<NormalizedConjunction::Equality> expected = {
+        {x5, 3, x3, 15},
+        {x7, 1, x6, -1}
     };
     
+    std::set<NormalizedConjunction::Equality> E1Set, E2Set;
+    transform(E1, std::inserter(E1Set, E1Set.end()), mapToSeccond);
+    transform(E2, std::inserter(E2Set, E2Set.end()), mapToSeccond);
+    
+    auto actual = NormalizedConjunctionTest::computeX4(E1Set, E2Set);
+    
+    result = actual == expected;
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
@@ -150,8 +166,8 @@ int main() {
         
     return !(NormalizedConjunctionTest::runTestX0()
              && NormalizedConjunctionTest::runTestX1()
-//             && NormalizedConjunctionTest::runTestX2()
-//             && NormalizedConjunctionTest::runTestX4()
+             && NormalizedConjunctionTest::runTestX2()
+             && NormalizedConjunctionTest::runTestX4()
 //             && NormalizedConjunctionTest::runTestAll()
              );
 }

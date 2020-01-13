@@ -186,23 +186,28 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
     
     std::vector<std::set<std::pair<Equality, Equality>>> Pi2;
     
-    // partition differentConstants
-    for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+    
+    for (auto jt = differentConstants.begin(); jt != differentConstants.end();) {
         std::set<std::pair<Equality, Equality>> equivalenceClass;
-        std::pair<Equality, Equality> ipair = *iterator;
-        equivalenceClass.insert(ipair);
-        iterator++;
+        auto j = *jt;
+        equivalenceClass.insert(j);
+        jt = differentConstants.erase(jt);
         
-        // FIXME: Make sure this doesnt casue any trouble!
-        for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
-            std::pair<Equality, Equality> jpair = *tempit;
-            bool condition1 = ipair.second.x == jpair.second.x;
-            bool condition2 = (ipair.first.b - ipair.second.b) / (ipair.second.a) == (jpair.first.b - jpair.second.b) / (jpair.second.a);
+        // partition differentConstants
+        // FIXME: performance can be increase by remoing i after assigning it to a equivalence class
+        for (auto it = jt; it != differentConstants.end(); ) {
+            auto i = *it;
+            bool condition1 = i.second.x == j.second.x;
+            bool condition2 = (i.first.b - i.second.b) / (i.second.a) == (j.first.b - j.second.b) / (j.second.a);
             if (condition1 && condition2) {
-                equivalenceClass.insert(jpair);
-                differentConstants.erase(tempit);
+                equivalenceClass.insert(i);
+                it = differentConstants.erase(it);
+                jt = differentConstants.begin();
+            } else {
+                it++;
             }
         }
+                
         Pi2.push_back(equivalenceClass);
     }
     
@@ -213,10 +218,10 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX2(std::
         for (auto i: q) {
             // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
             auto y = i.first.y;
-            auto m = i.second.a / h.second.b;
+            auto a = i.second.a / h.second.a;
             auto x = h.first.y;
             auto b = i.second.b - (i.second.a * h.second.b) / h.second.a;
-            Equality eq = {y, m, x, b};
+            Equality eq = {y, a, x, b};
             X2.insert(eq);
         }
     }
@@ -289,7 +294,7 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::
         auto eq1 = *itE1;
         auto eq2 = *itE2;
         assert(eq1.y == eq2.y && "left hand side of equations should be the same");
-        if (!eq1.isConstant() && !eq2.isConstant()) {
+        if (!eq1.isConstant() && !eq2.isConstant() && eq1 != eq2) {
             differentConstants.insert({eq1,eq2});
         }
     }
@@ -297,22 +302,26 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::
     std::vector<std::set<std::pair<Equality, Equality>>> Pi4;
     
     // partition differentConstants
-    for (auto iterator = differentConstants.begin(); iterator != differentConstants.end();) {
+    for (auto it = differentConstants.begin(); it != differentConstants.end();) {
         std::set<std::pair<Equality, Equality>> equivalenceClass;
-        std::pair<Equality, Equality> ipair = *iterator;
-        equivalenceClass.insert(ipair);
-        iterator++;
-        // FIXME: Make sure this doesnt casue any trouble!
-        for (auto tempit = iterator; tempit != differentConstants.end(); tempit++) {
-            std::pair<Equality, Equality> jpair = *tempit;
-            bool condition1 = ipair.first.x == jpair.first.x && ipair.second.x == jpair.second.x;
-            bool condition2 = ipair.second.a / (ipair.first.a) == jpair.second.a / (jpair.first.a);
-            bool condition3 = (ipair.first.b - ipair.second.b) / (ipair.first.a) == (jpair.first.b - jpair.second.b) / (jpair.first.a);
+        std::pair<Equality, Equality> i = *it;
+        equivalenceClass.insert(i);
+        it = differentConstants.erase(it);
+        
+        for (auto jt = it; jt != differentConstants.end(); ) {
+            std::pair<Equality, Equality> j = *jt;
+            bool condition1 = i.first.x == j.first.x && i.second.x == j.second.x;
+            bool condition2 = i.second.a / (i.first.a) == j.second.a / (j.first.a);
+            bool condition3 = (i.first.b - i.second.b) / (i.first.a) == (j.first.b - j.second.b) / (j.first.a);
             if (condition1 && condition2 && condition3) {
-                equivalenceClass.insert(jpair);
-                differentConstants.erase(tempit);
+                equivalenceClass.insert(j);
+                jt = differentConstants.erase(jt);
+                it = differentConstants.begin();
+            } else {
+                jt++;
             }
         }
+
         Pi4.push_back(equivalenceClass);
     }
     
@@ -323,10 +332,10 @@ std::set<NormalizedConjunction::Equality> NormalizedConjunction::computeX4(std::
         for (auto i: q) {
             // xi = ai/ah * xh + ( bi - (ai * bh) / ah)
             auto y = i.first.y;
-            auto m = i.second.a / (h.second.b);
+            auto a = i.second.a / h.second.a;
             auto x = h.first.y;
             auto b = i.second.b - (i.second.a * h.second.b) / (h.second.a);
-            Equality eq = {y, m, x, b};
+            Equality eq = {y, a, x, b};
             X4.insert(eq);
         }
     }
