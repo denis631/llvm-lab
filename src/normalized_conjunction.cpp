@@ -371,28 +371,35 @@ NormalizedConjunction NormalizedConjunction::linearAssignment(NormalizedConjunct
 
 // MARK: Abstract Operations
 
-// [xi := xj + c]
+// [xi := xj + b]
 // [xi := xj + xk]
-// [xi := cj + ck]
+// [xi := bj + bk]
 NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
     
+    // [xi := b + xj]
     if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
         auto b = dyn_cast<ConstantInt>(op1);
         return linearAssignment(result, &inst, 1, op2, b->getSExtValue());
+    // [xi := xj + b]
     } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
         auto b = dyn_cast<ConstantInt>(op2);
         return linearAssignment(result, &inst, 1, op1, b->getSExtValue());
+    // [xi := xj + xk]
     } else if (isa<Value>(op1) && isa<Value>(op2)) {
+        // [xi := bj + xk]
         if (result.equalaties[op1].isConstant()) {
             return linearAssignment(result, &inst, 1, op2, result.equalaties[op1].b);
+        // [xi := xj + bk]
         } else if (result.equalaties[op2].isConstant()) {
             return linearAssignment(result, &inst, 1, op1, result.equalaties[op2].b);
+        // [xi := xj + xk]
         } else {
             return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
         }
+    // [xi := bj + bk]
     } else if (isa<ConstantInt>(op1) && (isa<ConstantInt>(op2))) {
         return linearAssignment(result, &inst, 1, nullptr, result.equalaties[op1].b + result.equalaties[op2].b);
     } else {
@@ -403,47 +410,72 @@ NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  Norma
 
 // TODO: [xi := xj - x]
 NormalizedConjunction NormalizedConjunction::Sub(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
-    auto result = leastUpperBound(lhs, rhs);
-    auto i = result.equalaties[&inst];
-    auto op1 = inst.getOperand(0);
-    auto op2 = inst.getOperand(1);
-    Value const* j;
-    ConstantInt const* b;
-    
-    if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
-        b = dyn_cast<ConstantInt>(op1);
-        j = op2;
-    } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
-        b = dyn_cast<ConstantInt>(op2);
-        j = op1;
-    } else {
-        assert(false && "One operand has to be constant");
-    }
-    
-    auto jj = result.equalaties[j];
-    
-    if (i > jj) {
-        result.equalaties[i.y] = {i.y, 1, jj.x, jj.b - i.b};;
-    } else {
-        // Filter results
-        auto pred = [&jj](std::pair<Value const*,Equality> p){ return p.second.x == jj.y && p.second.y != jj.y;};
-        for (auto kpair: make_filter_range(result.equalaties, pred)) {
-            auto& k = kpair.second;
-            result.equalaties[k.y] = {k.y, 1, i.y, k.b + i.b - jj.b};
-        }
-        result.equalaties[jj.y] = {jj.y, 1, i.y, i.b - jj.b};
-    }
-    return result;
+   auto result = leastUpperBound(lhs, rhs);
+   auto op1 = inst.getOperand(0);
+   auto op2 = inst.getOperand(1);
+   
+   // [xi := b - xj]
+   if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
+       auto b = dyn_cast<ConstantInt>(op1);
+       return linearAssignment(result, &inst, 1, op2, -b->getSExtValue());
+   // [xi := xj - b]
+   } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
+       auto b = dyn_cast<ConstantInt>(op2);
+       return linearAssignment(result, &inst, 1, op1, -b->getSExtValue());
+   // [xi := xj - xk]
+   } else if (isa<Value>(op1) && isa<Value>(op2)) {
+       // [xi := bj - xk]
+       if (result.equalaties[op1].isConstant()) {
+           return linearAssignment(result, &inst, 1, op2, -result.equalaties[op1].b);
+       // [xi := xj - bk]
+       } else if (result.equalaties[op2].isConstant()) {
+           return linearAssignment(result, &inst, 1, op1, -result.equalaties[op2].b);
+       // [xi := xj - xk]
+       } else {
+           return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
+       }
+   // [xi := bj + bk]
+   } else if (isa<ConstantInt>(op1) && (isa<ConstantInt>(op2))) {
+       return linearAssignment(result, &inst, 1, nullptr, result.equalaties[op1].b - result.equalaties[op2].b);
+   } else {
+       assert(false);
+       return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
+   }
 }
 
 // [xi := a * xj]
 NormalizedConjunction NormalizedConjunction::Mul(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
     auto result = leastUpperBound(lhs, rhs);
-
-    // TODO
-    assert(false && "not implemented");
+    auto op1 = inst.getOperand(0);
+    auto op2 = inst.getOperand(1);
     
-    return result;
+    // [xi := a * xj]
+    if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
+        auto a = dyn_cast<ConstantInt>(op1);
+        return linearAssignment(result, &inst, a->getSExtValue(), op2, 0);
+    // [xi := xj * a]
+    } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
+        auto a = dyn_cast<ConstantInt>(op2);
+        return linearAssignment(result, &inst, a->getSExtValue(), op1, 0);
+    // [xi := xj * xk]
+    } else if (isa<Value>(op1) && isa<Value>(op2)) {
+        // [xi := aj * xk]
+        if (result.equalaties[op1].isConstant()) {
+            return linearAssignment(result, &inst, result.equalaties[op1].b, op2, 0);
+        // [xi := xj * ak]
+        } else if (result.equalaties[op2].isConstant()) {
+            return linearAssignment(result, &inst, result.equalaties[op1].b, op1, 0);
+        // [xi := xj * xk]
+        } else {
+            return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
+        }
+    // [xi := aj * ak]
+    } else if (isa<ConstantInt>(op1) && (isa<ConstantInt>(op2))) {
+        return linearAssignment(result, &inst, 1, nullptr, result.equalaties[op1].b * result.equalaties[op2].b);
+    } else {
+        assert(false);
+        return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
+    }
 }
 
 // MARK: Utils
