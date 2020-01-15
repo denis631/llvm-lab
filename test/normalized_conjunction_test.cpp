@@ -18,6 +18,8 @@ public:
     static bool runTestX1();
     static bool runTestX2();
     static bool runTestX4();
+    static bool runNonDeterministicAssignmentTest1();
+    static bool runNonDeterministicAssignmentTest2();
 };
 
 const Value *x1 = (Value *) 1;
@@ -162,6 +164,52 @@ bool NormalizedConjunctionTest::runTestX4() {
     return result;
 }
 
+bool NormalizedConjunctionTest::runNonDeterministicAssignmentTest1() {
+    std::cout << "Testing non deterministic Assignment 1: ";
+    bool result = false;
+    
+    NormalizedConjunction E = NormalizedConjunction({
+        {x1, {x1, 1, nullptr, 4}},
+        {x2, {x2, 1, nullptr, 2}}
+    });
+        
+    auto expected = NormalizedConjunction({
+        {x1, {x1, 1, nullptr, 4}},
+        {x2, {x2, 1, x2, 0}},
+    });
+    
+    auto actual = NormalizedConjunctionTest::nonDeterminsticAssignment(E, x2);
+    
+    result = actual == expected;
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+bool NormalizedConjunctionTest::runNonDeterministicAssignmentTest2() {
+    std::cout << "Testing non deterministic Assignment 2: ";
+    bool result = false;
+    
+    NormalizedConjunction E = NormalizedConjunction({
+        {x1, {x1, 1, x1, 0}},
+        {x2, {x2, 1, x1, 2}},
+        {x3, {x3, 1, x2, 4}},
+        {x4, {x4, 1, x1, 10}}
+    });
+        
+    auto expected = NormalizedConjunction({
+        {x1, {x1, 1, x1, 0}},
+        {x2, {x2, 1, x2, 0}},
+        {x3, {x3, 1, x2, 4}},
+        {x4, {x4, 1, x2, 8}}
+    });
+    
+    auto actual = NormalizedConjunctionTest::nonDeterminsticAssignment(E, x1);
+    
+    result = actual == expected;
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
 int main() {
         
     return !(NormalizedConjunctionTest::runTestX0()
@@ -169,5 +217,7 @@ int main() {
              && NormalizedConjunctionTest::runTestX2()
              && NormalizedConjunctionTest::runTestX4()
              && NormalizedConjunctionTest::runTestAll()
-             );
+             && NormalizedConjunctionTest::runNonDeterministicAssignmentTest1()
+             && NormalizedConjunctionTest::runNonDeterministicAssignmentTest2()
+        );
 }

@@ -11,7 +11,6 @@ using namespace llvm;
 NormalizedConjunction::NormalizedConjunction(Constant const& constant) {
     if (ConstantInt const* c = dyn_cast<ConstantInt>(&constant)) {
         state = NORMAL;
-        // Watch out for signed/unsigend APInts in future
         Equality eq = {&constant, 1, nullptr, c->getValue().getSExtValue()};
         equalaties = {{&constant,eq}};
     } else {
@@ -21,7 +20,7 @@ NormalizedConjunction::NormalizedConjunction(Constant const& constant) {
 
 NormalizedConjunction::NormalizedConjunction(std::map<Value const*, Equality> equalaties) {
     this->equalaties = equalaties;
-    state = NORMAL;
+    state = equalaties.empty() ? TOP : NORMAL;
 }
 
 // MARK: AbstractDomain interface
@@ -29,55 +28,26 @@ NormalizedConjunction::NormalizedConjunction(std::map<Value const*, Equality> eq
 NormalizedConjunction NormalizedConjunction::interpret(
     Instruction const& inst, std::vector<NormalizedConjunction> const& operands
 ) {
-    // FIXME: maybe use nonDeterministic assignment here.
-    if (operands.size() != 2) return NormalizedConjunction {true};
+    NormalizedConjunction a = operands[0];
+    NormalizedConjunction b = operands[1];
+    
+    if (operands.size() != 2) return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(a,b), &inst);
 
     // We only deal with integer types
     IntegerType const* type = dyn_cast<IntegerType>(inst.getType());
     // FIXME: maybe use nonDeterministic assignment here.
-    if (not type) return NormalizedConjunction {true};
+    if (not type) return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(a,b), &inst);
     
     type = dyn_cast<IntegerType>(inst.getOperand(0)->getType());
     // FIXME: maybe use nonDeterministic assignment here.
-    if (not type) return NormalizedConjunction {true};
+    if (not type) return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(a,b), &inst);
     
     type = dyn_cast<IntegerType>(inst.getOperand(1)->getType());
     // FIXME: maybe use nonDeterministic assignment here.
-    if (not type) return NormalizedConjunction {true};
+    if (not type) return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(a,b), &inst);
     
     unsigned bitWidth = inst.getOperand(0)->getType()->getIntegerBitWidth();
     assert(bitWidth == inst.getOperand(1)->getType()->getIntegerBitWidth());
-
-    NormalizedConjunction a = operands[0];
-    NormalizedConjunction b = operands[1];
-        
-    // Abstract Effect of statements:
-            
-    // [xi := ?]
-    // default
-    
-    // [xi := b]
-    // This will never occur due to SSA Form.
-    
-    // [xi := xi]
-    // [xi := xj]
-    // Those will never occur due to SSA Form.
-    
-    // [xi := xi + b]   [xi := xi - b]
-    // Cannot occur due to SSA
-    
-    // [xi := xj + b]   [xi := xj - b]
-    
-    // [xi := a * xi]   [xi := a / xi]
-    // Cannot occur due to SSA
-    
-    // [xi := a * xj]   [xi := a / xj]
-    
-    // [xi := a * xi + b]   [xi := a * xi - b]   [xi := a / xi + b]  [xi := a / xi - b]
-    // Cannot occur due to SSA
-    
-    // [xi := a * xj + b]   [xi := a * xj - b]   [xi := a / xj + b]  [xi := a / xj - b]
-    // Those will never occur due to SSA Form.
     
     switch (inst.getOpcode()) {
         case Instruction::Add:
@@ -89,7 +59,7 @@ NormalizedConjunction NormalizedConjunction::interpret(
         case Instruction::SDiv:
         case Instruction::UDiv:
         default:
-            return nonDeterminsticAssignment(inst, a, b);
+            return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(a,b), &inst);
     }
 }
 
@@ -100,9 +70,9 @@ NormalizedConjunction NormalizedConjunction::refineBranch(CmpInst::Predicate pre
 
 
 NormalizedConjunction NormalizedConjunction::merge(Merge_op::Type op, NormalizedConjunction a, NormalizedConjunction b) {
-    if (a.isBottom()) return b;
-    if (b.isBottom()) return a;
-    if (a.isTop() || b.isTop()) return NormalizedConjunction {true};
+//    if (a.isBottom()) return b;
+//    if (b.isBottom()) return a;
+//    if (a.isTop() || b.isTop()) return NormalizedConjunction {true};
 
     // Note that T is handled above, so no need to convert the inputs
     
@@ -344,52 +314,26 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
 
 // MARK: Abstract Assignments
 
-// [xi := ?]# E = Exists# xi in E
-NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs) {
-    auto result = leastUpperBound(lhs, rhs);
-    auto i = result.equalaties[&inst];
-
-    if (i.x != &inst && i.b != 0) {
-        result.equalaties[&inst] = {&inst, 1, &inst, 0};
-    } else {
-        // find all equations using xi
-        auto predicate = [&i](std::pair<Value const*, Equality> p){ return p.second.x = i.y;};
-        auto it = std::find_if(result.equalaties.begin(), result.equalaties.end(), predicate);
-        if (it != result.equalaties.end()) {
-            Equality k = (*it).second;
-            for (it = std::find_if(++it, result.equalaties.end(), predicate);
-                 it != result.equalaties.end();
-                 it = std::find_if(++it, result.equalaties.end(), predicate)) {
-                auto& l = it->second;
-                result.equalaties[l.y] = {l.y, 1, k.y, l.b - k.b};
-            }
-            result.equalaties[k.y] = {k.y, 1, k.y, 0};
-        }
-        result.equalaties[&inst] = {&inst, 1, &inst, 0};
-    }
-    return result;
-}
-
 /// [xi := ?]
 NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(NormalizedConjunction E, Value const* xi) {
     assert(xi != nullptr && "xi cannot be NULL");
-    auto i = E.equalaties[xi];
+    auto xj = E.equalaties[xi].x;
     
-    if (xi != i.x && i.b != 0) {
+    if (xi != xj && xj != 0) {
         E.equalaties[xi] = {xi, 1, xi, 0};
     } else {
         // find all equations using xi
-        auto predicate = [&i](std::pair<Value const*, Equality> p){ return p.second.x = i.y;};
+        auto predicate = [&xi](std::pair<Value const*, Equality> p){ return p.second.x == xi && p.second.y != xi ;};
         auto it = std::find_if(E.equalaties.begin(), E.equalaties.end(), predicate);
         if (it != E.equalaties.end()) {
-            Equality k = (*it).second;
+            auto xk = (*it).second;
             for (it = std::find_if(++it, E.equalaties.end(), predicate);
                  it != E.equalaties.end();
                  it = std::find_if(++it, E.equalaties.end(), predicate)) {
-                auto& l = it->second;
-                E.equalaties[l.y] = {l.y, 1, k.y, l.b - k.b};
+                auto& xl = it->second;
+                E.equalaties[xl.y] = {xl.y, 1, xk.y, xl.b - xk.b};
             }
-            E.equalaties[k.y] = {k.y, 1, k.y, 0};
+            E.equalaties[xk.y] = {xk.y, 1, xk.y, 0};
         }
         E.equalaties[xi] = {xi, 1, xi, 0};
     }
@@ -439,13 +383,13 @@ NormalizedConjunction NormalizedConjunction::Add(Instruction const& inst,  Norma
         } else if (result.equalaties[op2].isConstant()) {
             return linearAssignment(result, &inst, 1, op1, result.equalaties[op2].b);
         } else {
-            return nonDeterminsticAssignment(inst, lhs, rhs);
+            return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
         }
     } else if (isa<ConstantInt>(op1) && (isa<ConstantInt>(op2))) {
         return linearAssignment(result, &inst, 1, nullptr, result.equalaties[op1].b + result.equalaties[op2].b);
     } else {
         assert(false);
-        return nonDeterminsticAssignment(inst, lhs, rhs);
+        return nonDeterminsticAssignment(NormalizedConjunction::leastUpperBound(lhs,rhs), &inst);
     }
 }
 
@@ -516,9 +460,9 @@ bool NormalizedConjunction::isNormalized() const {
 // MARK: Operators
 
 bool NormalizedConjunction::operator==(NormalizedConjunction rhs) const {
-    return state == NORMAL
-        ? rhs.state == NORMAL and equalaties == rhs.equalaties
-        : state == rhs.state;
+    return getState() == NORMAL
+        ? rhs.getState() == NORMAL and equalaties == rhs.equalaties
+        : getState() == rhs.getState();
 }
 
 raw_ostream& operator<<(raw_ostream& os, NormalizedConjunction a) {
@@ -527,9 +471,13 @@ raw_ostream& operator<<(raw_ostream& os, NormalizedConjunction a) {
     } else if(a.isTop()) {
         os << "T";
     } else {
-        for (auto eq: a.equalaties) {
-        // FIXME: Hanlde nullptr
-            
+        if (a.equalaties.size() > 0) {
+            os << "{ ";
+        } else {
+            os << "{ }";
+        }
+        for (auto it = a.equalaties.begin(); it != a.equalaties.end(); it++) {
+            auto eq = *it;
             if (eq.second.y != nullptr && eq.second.y->hasName()) {
                 os << eq.second.y->getName() << " = ";
             } else if (eq.second.y != nullptr) {
@@ -553,7 +501,11 @@ raw_ostream& operator<<(raw_ostream& os, NormalizedConjunction a) {
                 os << eq.second.b;
             }
         
-            os << "\n";            
+            if (std::next(it) == a.equalaties.end()) {
+                os << " }";
+            } else {
+                os << ", ";
+            }
         }
     }
     return os;

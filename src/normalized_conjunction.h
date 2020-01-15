@@ -64,6 +64,7 @@ class NormalizedConjunction {
             bool isConstant() const { return x == nullptr; };
         };
         std::map<llvm::Value const*, Equality> equalaties;
+        State getState() const { return equalaties.empty() ? TOP : NORMAL; };
 
         // AbstractDomain interface
         NormalizedConjunction(bool isTop = false): state{isTop ? TOP : BOTTOM} {}
@@ -80,17 +81,16 @@ class NormalizedConjunction {
         static NormalizedConjunction leastUpperBound(NormalizedConjunction E1, NormalizedConjunction E2);
     
         // utils
-        bool isTop() const { return state == TOP; }; /* return equalities.empty() */
-        bool isBottom() const { return state == BOTTOM; }; /* never? */
+        bool isTop() const { return getState() == TOP; }; /* return equalities.empty() */
+        bool isBottom() const { return getState() == BOTTOM; }; /* never? */
         bool isNormalized() const;
     
         // TODO: [] operator ?
         bool operator==(NormalizedConjunction other) const;
         bool operator!=(NormalizedConjunction other) const {return !(*this == other);}
     
-    private:
+    protected:
         // Assignments
-        static NormalizedConjunction nonDeterminsticAssignment(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
         static NormalizedConjunction linearAssignment(NormalizedConjunction E, llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
         static NormalizedConjunction nonDeterminsticAssignment(NormalizedConjunction E, llvm::Value const* xi);
 
@@ -99,7 +99,6 @@ class NormalizedConjunction {
         static NormalizedConjunction Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
     
         // Helpers
-    protected:
         static std::set<Equality> computeX0(std::set<Equality> const& E1, std::set<Equality> const& E2);
         static std::set<Equality> computeX1(std::set<Equality> const& E1, std::set<Equality> const& E2);
         static std::set<Equality> computeX2(std::set<Equality> const& E1, std::set<Equality> const& E2);
