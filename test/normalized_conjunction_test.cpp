@@ -20,6 +20,8 @@ public:
     static bool runTestX4();
     static bool runNonDeterministicAssignmentTest1();
     static bool runNonDeterministicAssignmentTest2();
+    static bool runLinearAssignmentTest1();
+    static bool runLinearAssignmentTest2();
 };
 
 const Value *x1 = (Value *) 1;
@@ -210,6 +212,59 @@ bool NormalizedConjunctionTest::runNonDeterministicAssignmentTest2() {
     return result;
 }
 
+bool NormalizedConjunctionTest::runLinearAssignmentTest1() {
+    std::cout << "Testing linear Assignment 1: ";
+    bool result = false;
+    
+    NormalizedConjunction E = NormalizedConjunction({
+        {x1, {x1, 1, nullptr, 2}},
+        {x2, {x2, 1, x2, 0}},
+        {x3, {x3, 1, x2, 3}}
+        
+    });
+        
+    auto expected = NormalizedConjunction({
+        {x1, {x1, 1, nullptr, 2}},
+        {x2, {x2, 1, nullptr, 5}},
+        {x3, {x3, 1, x3, 0}}
+    });
+    
+    auto actual = NormalizedConjunctionTest::linearAssignment(E, x2, 1, x1, 3);
+    
+    result = actual == expected;
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+bool NormalizedConjunctionTest::runLinearAssignmentTest2() {
+    std::cout << "Testing linear Assignment 2: ";
+    bool result = false;
+    
+    NormalizedConjunction E = NormalizedConjunction({
+        {x1, {x1, 1, x1, 0}},
+        {x2, {x2, 1, x1, 4}},
+        {x3, {x3, 1, x3, 0}},
+        {x4, {x4, 1, x3, 10}},
+        {x5 ,{x5, 1, x3, -4}},
+        {x6, {x6, 1, x3, 1}}
+    });
+        
+    auto expected = NormalizedConjunction({
+        {x1, {x1, 1, x1, 0}},
+        {x2, {x2, 1, x2, 0}},
+        {x3, {x3, 1, x2, -11}},
+        {x4, {x4, 1, x2, -1}},
+        {x5, {x5, 1, x2, -15}},
+        {x6, {x6, 1, x2, -10}}
+    });
+    
+    auto actual = NormalizedConjunctionTest::linearAssignment(E, x2, 1, x4, 1);
+    
+    result = actual == expected;
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
 int main() {
         
     return !(NormalizedConjunctionTest::runTestX0()
@@ -219,5 +274,7 @@ int main() {
              && NormalizedConjunctionTest::runTestAll()
              && NormalizedConjunctionTest::runNonDeterministicAssignmentTest1()
              && NormalizedConjunctionTest::runNonDeterministicAssignmentTest2()
+             && NormalizedConjunctionTest::runLinearAssignmentTest1()
+             && NormalizedConjunctionTest::runLinearAssignmentTest2()
         );
 }

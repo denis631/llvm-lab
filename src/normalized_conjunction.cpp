@@ -344,6 +344,8 @@ NormalizedConjunction NormalizedConjunction::nonDeterminsticAssignment(Normalize
 NormalizedConjunction NormalizedConjunction::linearAssignment(NormalizedConjunction E, Value const* xi, int64_t a, Value const* xj, int64_t b) {
     assert(xi != nullptr && "xi cannot be NULL");
 
+    E = nonDeterminsticAssignment(E, xi);
+    
     // make sure xj exists
     auto xjS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].x : nullptr;
     auto bS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].b : 0;
