@@ -349,16 +349,22 @@ NormalizedConjunction NormalizedConjunction::linearAssignment(NormalizedConjunct
     // make sure xj exists
     auto xjS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].x : nullptr;
     auto bS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].b : 0;
+    auto aS = E.equalaties.find(xj) != E.equalaties.end() ? E.equalaties[xj].a : 1;
+    
+    if (!(a % aS == 0 && (-bS - b) % aS == 0)) {
+        // Precison loss due to int division! Abort
+        return E;
+    }
     
     if (xi > xjS) {
-        E.equalaties[xi] = {xi, a, xjS, bS + b};
+        E.equalaties[xi] = {xi, aS * a, xjS, a * bS + b};
         return E;
     } else {
         auto pred = [&xjS](std::pair<Value const*, Equality> p){ return p.second.x == xjS && p.second.y != xjS; };
         for (auto xk: make_filter_range(E.equalaties, pred)) {
-            E.equalaties[xk.second.y] = {xk.second.y, a, xi, xk.second.b - b - bS};
+            E.equalaties[xk.second.y] = {xk.second.y, xk.second.a * a/aS, xi, (-bS - b) / aS + xk.second.b};
         }
-        E.equalaties[xjS] = {xjS, a, xi, -b - bS};
+        E.equalaties[xjS] = {xjS, a/aS, xi, (-bS - b) / aS};
     }
     return E;
 }
