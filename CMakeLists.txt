@@ -100,36 +100,35 @@ endif()
 
 set(pain_sources
   src/fixpoint.cpp
-  src/fixpoint.h
   src/value_set.cpp
-  src/value_set.h
   src/simple_interval.cpp
-  src/simple_interval.h
   src/normalized_conjunction.cpp
+)
+
+set(pain_headers
+  src/fixpoint.h
+  src/value_set.h
+  src/simple_interval.h
   src/normalized_conjunction.h
 )
 
+include_directories(${LLVM_INCLUDE_DIRS})
+
 add_llvm_library(llvm-pain MODULE
   ${pain_sources}
+  ${pain_headers}
   DEPENDS
   intrinsics_gen
   PLUGIN_TOOL
   opt
 )
 
-target_include_directories(llvm-pain PRIVATE
-  ${LLVM_INCLUDE_DIRS}
-)
-
 add_llvm_executable(simple_interval_test
    test/simple_interval_test.cpp
+   ${pain_headers}
    ${pain_sources}
    DEPENDS
    intrinsics_gen
-)
-
- target_include_directories(simple_interval_test PRIVATE
-   ${LLVM_INCLUDE_DIRS}
 )
 
 target_link_libraries(simple_interval_test
@@ -138,13 +137,10 @@ target_link_libraries(simple_interval_test
 
 add_llvm_executable(normalized_conjunction_test
    test/normalized_conjunction_test.cpp
+   ${pain_headers}
    ${pain_sources}
    DEPENDS
    intrinsics_gen
-)
-
- target_include_directories(normalized_conjunction_test PRIVATE
-   ${LLVM_INCLUDE_DIRS}
 )
 
 target_link_libraries(normalized_conjunction_test
