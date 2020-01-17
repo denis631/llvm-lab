@@ -287,9 +287,7 @@ NormalizedConjunction NormalizedConjunction::leastUpperBound(NormalizedConjuncti
         E2.insert(eq);
     }
     
-    // XO / E'0: set of variables where the right hand side in E1 and E2 coincide
     std::set<Equality> X0 = computeX0(E1, E2);
-    // FIXME: function computeX2(a,b) == computeX3(b,a) remove one of them
     std::set<Equality> X1 = computeX1(E1, E2);
     std::set<Equality> X2 = computeX2(E1, E2);
     std::set<Equality> X3 = computeX2(E2, E1);
