@@ -88,7 +88,6 @@ void executeFixpointAlgorithmTwoVarEq(llvm::Module const& M) {
             dbgs(1) << "  Merging function parameters, is entry block\n";
 
             // if it is the entry node, then its state should be top
-            state_new.isBottom = false;
             state_new.merge(Merge_op::UPPER_BOUND, node.state);
         }
 
@@ -99,7 +98,7 @@ void executeFixpointAlgorithmTwoVarEq(llvm::Module const& M) {
         std::vector<AbstractState> predecessors;
         for (llvm::BasicBlock const* bb: llvm::predecessors(node.bb)) {
             dbgs(3) << "    Merging basic block " << _bb_to_str(bb) << '\n';
-
+            
             AbstractState state_branched {nodes[std::make_tuple(bb, node.callstring)].state};
             state_branched.branch(*bb, *node.bb);
             state_new.merge(Merge_op::UPPER_BOUND, state_branched);
@@ -111,9 +110,6 @@ void executeFixpointAlgorithmTwoVarEq(llvm::Module const& M) {
         // Apply the basic block
         dbgs(3) << "  Applying basic block\n";
 
-        if (state_new.isBottom) {
-            dbgs(3) << "    Basic block is unreachable, everything is bottom\n";
-        } else {
             // Applies all instrucions of a basic block
             for (llvm::Instruction const& inst: *node.bb) {
 
@@ -133,16 +129,15 @@ void executeFixpointAlgorithmTwoVarEq(llvm::Module const& M) {
                 }
 
                 // Handles merging points
-                if (llvm::dyn_cast<llvm::PHINode>(&inst)) {
-
-                    state_new.applyPHINode(*node.bb, predecessors, inst);
+                if (llvm::PHINode const* phi = llvm::dyn_cast<llvm::PHINode>(&inst)) {
+                    
+                    state_new.applyPHINode(*node.bb, predecessors, phi);
 
                 // Handles function calls
                 } else if (llvm::CallInst const* call = llvm::dyn_cast<llvm::CallInst>(&inst)) {
 
                     // Checks if an input parameter for the callee is bottom. If so,
                     // then skip the calculation of the call instruction for now
-                    if (state_new.checkOperandsForBottom(inst)) continue;
 
                     llvm::Function const* callee_func = call->getCalledFunction();
 
@@ -211,10 +206,9 @@ void executeFixpointAlgorithmTwoVarEq(llvm::Module const& M) {
                         }
                     }
                 } else {
-                    if (state_new.checkOperandsForBottom(inst)) continue;
                     state_new.applyDefault(inst);
                 }
-            }
+            
         }
 
         // Merge the state back into the node

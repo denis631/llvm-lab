@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 
 #include "../src/normalized_conjunction.h"
+#include "../src/linear_equality.h"
 
 using namespace pcpo;
 using namespace llvm;
@@ -37,7 +38,7 @@ const Value *x10 = (Value *) 10;
 const Value *x11 = (Value *) 11;
 const Value *x12 = (Value *) 12;
 
-const std::map<Value const *, NormalizedConjunction::Equality> E1 = {
+const std::unordered_map<Value const *, LinearEquality> E1 = {
     {x1, {x1, 1, x1, 0}},
     {x2, {x2, 1, x2, 0}},
     {x3, {x3, 1, x1, 0}},
@@ -52,7 +53,7 @@ const std::map<Value const *, NormalizedConjunction::Equality> E1 = {
     {x12, {x12, 1, nullptr, 3}}
 };
 
-const std::map<Value const *, NormalizedConjunction::Equality> E2 = {
+const std::unordered_map<Value const *, LinearEquality> E2 = {
     {x1, {x1, 1, x1, 0}},
     {x2, {x2, 1, x2, 0}},
     {x3, {x3, 1, x2, -5}},
@@ -67,13 +68,13 @@ const std::map<Value const *, NormalizedConjunction::Equality> E2 = {
     {x12, {x12, 4, x1, -5}}
 };
 
-auto mapToSeccond = [](std::pair<Value const*, NormalizedConjunction::Equality> p){ return p.second; };
+auto mapToSeccond = [](std::pair<Value const*, LinearEquality> p){ return p.second; };
 
 
 bool NormalizedConjunctionTest::runTestAll() {
     std::cout << "Testing all: ";
     bool result = false;
-    std::map<Value const*, NormalizedConjunction::Equality> expected = {
+    std::unordered_map<Value const*, LinearEquality> expected = {
         {x4, {x4, 3, x2, 5}},
         {x5, {x5, 3, x3, 15}},
         {x7, {x7, 1, x6, -1}},
@@ -81,9 +82,10 @@ bool NormalizedConjunctionTest::runTestAll() {
         {x12, {x12, 2, x11, 1}}
     };
     
-    auto actual = NormalizedConjunction::leastUpperBound(NormalizedConjunction(E1), NormalizedConjunction(E2));
+    auto actual = NormalizedConjunction(E1);
+    actual.leastUpperBound(NormalizedConjunction(E2));
     
-    result = actual.equalaties == expected;
+    result = actual.values == expected;
     
     std::cout << (result? "success" : "failed") << "\n";
     return result;
@@ -93,11 +95,11 @@ bool NormalizedConjunctionTest::runTestX0() {
     std::cout << "Testing X0: ";
     bool result = true;
     
-    std::set<NormalizedConjunction::Equality> expected = {
+    std::set<LinearEquality> expected = {
         {x4, 3, x2, 5}
     };
     
-    std::set<NormalizedConjunction::Equality> E1Set, E2Set;
+    std::set<LinearEquality> E1Set, E2Set;
     transform(E1, std::inserter(E1Set, E1Set.end()), mapToSeccond);
     transform(E2, std::inserter(E2Set, E2Set.end()), mapToSeccond);
     
@@ -112,11 +114,11 @@ bool NormalizedConjunctionTest::runTestX1() {
     std::cout << "Testing X1: ";
     bool result = false;
     
-    std::set<NormalizedConjunction::Equality> expected = {
+    std::set<LinearEquality> expected = {
         {x10, 2, x9, 2}
     };
     
-    std::set<NormalizedConjunction::Equality> E1Set, E2Set;
+    std::set<LinearEquality> E1Set, E2Set;
     transform(E1, std::inserter(E1Set, E1Set.end()), mapToSeccond);
     transform(E2, std::inserter(E2Set, E2Set.end()), mapToSeccond);
     
@@ -131,11 +133,11 @@ bool NormalizedConjunctionTest::runTestX2() {
     std::cout << "Testing X2: ";
     bool result = false;
     
-    std::set<NormalizedConjunction::Equality> expected = {
+    std::set<LinearEquality> expected = {
         {x12, 2, x11, 1}
     };
     
-    std::set<NormalizedConjunction::Equality> E1Set, E2Set;
+    std::set<LinearEquality> E1Set, E2Set;
     transform(E1, std::inserter(E1Set, E1Set.end()), mapToSeccond);
     transform(E2, std::inserter(E2Set, E2Set.end()), mapToSeccond);
     
@@ -150,12 +152,12 @@ bool NormalizedConjunctionTest::runTestX4() {
     std::cout << "Testing X4: ";
     bool result = false;
     
-    std::set<NormalizedConjunction::Equality> expected = {
+    std::set<LinearEquality> expected = {
         {x5, 3, x3, 15},
         {x7, 1, x6, -1}
     };
     
-    std::set<NormalizedConjunction::Equality> E1Set, E2Set;
+    std::set<LinearEquality> E1Set, E2Set;
     transform(E1, std::inserter(E1Set, E1Set.end()), mapToSeccond);
     transform(E2, std::inserter(E2Set, E2Set.end()), mapToSeccond);
     
@@ -180,9 +182,9 @@ bool NormalizedConjunctionTest::runNonDeterministicAssignmentTest1() {
         {x2, {x2, 1, x2, 0}},
     });
     
-    auto actual = NormalizedConjunctionTest::nonDeterminsticAssignment(E, x2);
+    E.nonDeterminsticAssignment(x2);
     
-    result = actual == expected;
+    result = E.values == expected.values;
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
@@ -205,9 +207,9 @@ bool NormalizedConjunctionTest::runNonDeterministicAssignmentTest2() {
         {x4, {x4, 1, x2, 8}}
     });
     
-    auto actual = NormalizedConjunctionTest::nonDeterminsticAssignment(E, x1);
+    E.nonDeterminsticAssignment(x1);
     
-    result = actual == expected;
+    result = E.values == expected.values;
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
@@ -229,9 +231,9 @@ bool NormalizedConjunctionTest::runLinearAssignmentTest1() {
         {x3, {x3, 1, x3, 0}}
     });
     
-    auto actual = NormalizedConjunctionTest::linearAssignment(E, x2, 1, x1, 3);
+    E.linearAssignment(x2, 1, x1, 3);
     
-    result = actual == expected;
+    result = E.values == expected.values;
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
@@ -258,9 +260,9 @@ bool NormalizedConjunctionTest::runLinearAssignmentTest2() {
         {x6, {x6, 1, x2, -10}}
     });
     
-    auto actual = NormalizedConjunctionTest::linearAssignment(E, x2, 1, x4, 1);
+    E.linearAssignment(x2, 1, x4, 1);
     
-    result = actual == expected;
+    result = E.values == expected.values;
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }

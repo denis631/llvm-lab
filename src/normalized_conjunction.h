@@ -1,110 +1,71 @@
+//
+//  conjunction.h
+//  PAIN
+//
+//  Created by Tim Gymnich on 17.1.20.
+//
+
 #pragma once
 
-#include <llvm/ADT/APInt.h>
-#include <llvm/IR/Constant.h>
+#include <unordered_map>
+#include <vector>
+#include <set>
+
 #include <llvm/IR/Instructions.h>
-#include <llvm/IR/InstrTypes.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/CFG.h>
 
 #include "global.h"
-#include <map>
-#include <set>
+#include "linear_equality.h"
 
 namespace pcpo {
 
 class NormalizedConjunction {
-
-    public:
-        enum State: char {
-            INVALID, BOTTOM = 1, NORMAL = 2, TOP = 4
-        };
-        // TODO: consider making this a computed value based on the equalaties
-        char state;
-        struct Equality {
-            // y = a * x + b
-            llvm::Value const* y;
-            // APInt would be nicer, but our anlysis doesnt care about bit width
-            int64_t a;
-            llvm::Value const* x;
-            int64_t b;
-            
-            inline bool operator<(Equality const& rhs) const {
-                if (y == rhs.y) {
-                    if (a == rhs.a) {
-                        if (x == rhs.x) {
-                            if (b == rhs.b) {
-                                return false;
-                            } else {
-                                return b < rhs.b;
-                            }
-                        } else {
-                            return x < rhs.x;
-                        }
-                    } else {
-                        return a < rhs.a;
-                    }
-                } else {
-                    return y < rhs.y;
-                }
-            };
-            
-            inline bool operator>(Equality const& rhs) const {
-                return *this < rhs;
-            };
-            
-            inline bool operator==(Equality const& rhs) const {
-                return y == rhs.y && a == rhs.a && x == rhs.x && b == rhs.b;
-            };
-            
-            inline bool operator!=(Equality const& rhs) const {
-                return !(*this == rhs);
-            };
-            
-            bool isConstant() const { return x == nullptr; };
-        };
-        std::map<llvm::Value const*, Equality> equalaties;
-        State getState() const { return equalaties.empty() ? TOP : NORMAL; };
-
-        // AbstractDomain interface
-        NormalizedConjunction(bool isTop = false): state{isTop ? TOP : BOTTOM} {}
-        NormalizedConjunction(std::map<llvm::Value const*, Equality> equalaties);
-        NormalizedConjunction(llvm::Constant const& constant);
-        static NormalizedConjunction interpret(
-            llvm::Instruction const& inst, std::vector<NormalizedConjunction> const& operands
-        );
-        static NormalizedConjunction refineBranch(
-            llvm::CmpInst::Predicate pred, llvm::Value const& lhs, llvm::Value const& rhs,
-            NormalizedConjunction a, NormalizedConjunction b
-        );
-        static NormalizedConjunction merge(Merge_op::Type op, NormalizedConjunction a, NormalizedConjunction b);
-        static NormalizedConjunction leastUpperBound(NormalizedConjunction E1, NormalizedConjunction E2);
+public:
+    std::unordered_map<llvm::Value const*, LinearEquality> values;
     
-        // utils
-        bool isTop() const { return getState() == TOP; }; /* return equalities.empty() */
-        bool isBottom() const { return getState() == BOTTOM; }; /* never? */
-        bool isNormalized() const;
+    NormalizedConjunction() = default;
+    NormalizedConjunction(NormalizedConjunction const& state) = default;
+    NormalizedConjunction(std::unordered_map<llvm::Value const*, LinearEquality> equalaties);
     
-        // TODO: [] operator ?
-        bool operator==(NormalizedConjunction other) const;
-        bool operator!=(NormalizedConjunction other) const {return !(*this == other);}
+    explicit NormalizedConjunction(llvm::Function const& f);
+    /// This constructor is used to initialize the state of a function call, to which parameters are passed.
+    /// This is the "enter" function as described in "Compiler Design: Analysis and Transformation"
+    explicit NormalizedConjunction(llvm::Function const* callee_func, NormalizedConjunction const& state, llvm::CallInst const* call);
     
-    protected:
-        // Assignments
-        static NormalizedConjunction linearAssignment(NormalizedConjunction E, llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
-        static NormalizedConjunction nonDeterminsticAssignment(NormalizedConjunction E, llvm::Value const* xi);
-
-        static NormalizedConjunction Add(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
-        static NormalizedConjunction Sub(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
-        static NormalizedConjunction Mul(llvm::Instruction const& inst, NormalizedConjunction lhs, NormalizedConjunction rhs);
+    /// Handles the evaluation of merging points
+    void applyPHINode(llvm::BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values, llvm::PHINode const* phi);
+    /// Handles the evaluation of function calls
+    /// This is the "combine" function as described in "Compiler Design: Analysis and Transformation"
+    void applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block, NormalizedConjunction const& callee_state);
+    /// Handles the evaluation of return instructions
+    void applyReturnInst(llvm::Instruction const& inst);
+    /// Handles the evaluation of all other instructions
+    void applyDefault(llvm::Instruction const& inst);
+    bool merge(Merge_op::Type op, NormalizedConjunction const& other);
+    void branch(llvm::BasicBlock const& from, llvm::BasicBlock const& towards) { return; };
+    bool leastUpperBound(NormalizedConjunction rhs);
     
-        // Helpers
-        static std::set<Equality> computeX0(std::set<Equality> const& E1, std::set<Equality> const& E2);
-        static std::set<Equality> computeX1(std::set<Equality> const& E1, std::set<Equality> const& E2);
-        static std::set<Equality> computeX2(std::set<Equality> const& E1, std::set<Equality> const& E2);
-        static std::set<Equality> computeX4(std::set<Equality> const& E1, std::set<Equality> const& E2);
+    void printIncoming(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;
+    void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;
+    
+    // Abstract Assignments
+    void linearAssignment(llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
+    void nonDeterminsticAssignment(llvm::Value const* xi);
+    
+protected:
+    // Abstract Operators
+    void Add(llvm::Instruction const& inst);
+    void Sub(llvm::Instruction const& inst);
+    void Mul(llvm::Instruction const& inst);
+    
+    /// Used for debug output
+    void debug_output(llvm::Instruction const& inst, std::vector<LinearEquality> operands);
+    
+    // Helpers
+    static std::set<LinearEquality> computeX0(std::set<LinearEquality> const& E1, std::set<LinearEquality> const& E2);
+    static std::set<LinearEquality> computeX1(std::set<LinearEquality> const& E1, std::set<LinearEquality> const& E2);
+    static std::set<LinearEquality> computeX2(std::set<LinearEquality> const& E1, std::set<LinearEquality> const& E2);
+    static std::set<LinearEquality> computeX4(std::set<LinearEquality> const& E1, std::set<LinearEquality> const& E2);
 };
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NormalizedConjunction a);
 
 }

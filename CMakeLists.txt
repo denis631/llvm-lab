@@ -103,6 +103,7 @@ set(pain_sources
   src/value_set.cpp
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
+  src/linear_equality.cpp
 )
 
 set(pain_headers
@@ -110,6 +111,7 @@ set(pain_headers
   src/value_set.h
   src/simple_interval.h
   src/normalized_conjunction.h
+  src/linear_equality.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
