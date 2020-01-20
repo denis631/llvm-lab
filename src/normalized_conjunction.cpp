@@ -183,9 +183,11 @@ bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
     auto addMapping = [](LinearEquality eq){ return std::make_pair(eq.y,eq); };
     transform(leastUpperBound, std::inserter(result, result.end()), addMapping);
 
+    bool changed = values != result;
+    
     values = result;
 
-    return true;
+    return changed;
 }
 
 /// XO / E'0: set of variables where the right hand side in E1 and E2 coincide
