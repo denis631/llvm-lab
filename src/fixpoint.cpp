@@ -11,11 +11,13 @@
 #include "general.h"
 #include "global.h"
 #include "callstring.h"
-#include "fixpoint_widening.cpp"
-#include "fixpoint_two_var_eq.cpp"
+
 #include "value_set.h"
 #include "simple_interval.h"
 #include "normalized_conjunction.h"
+
+#include "fixpoint_widening.cpp"
+#include "fixpoint_two_var_eq.cpp"
 
 
 namespace pcpo {

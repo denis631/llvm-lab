@@ -7,6 +7,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 
 #include "global.h"
+#include "general.h"
 #include "callstring.h"
 #include "value_set.h"
 

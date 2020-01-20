@@ -100,6 +100,8 @@ endif()
 
 set(pain_sources
   src/fixpoint.cpp
+  src/fixpoint_widening.cpp
+  src/fixpoint_two_var_eq.cpp
   src/value_set.cpp
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
@@ -112,6 +114,9 @@ set(pain_headers
   src/simple_interval.h
   src/normalized_conjunction.h
   src/linear_equality.h
+  src/general.h
+  src/global.h
+  src/callstring.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})

@@ -1,3 +1,4 @@
+#pragma once
 #include "llvm/ADT/Hashing.h"
 
 // C++ unordered_maps don't support tuples as keys, which is why one has to define the hash function for said tuple.
@@ -28,7 +29,7 @@ namespace pcpo {
   typedef std::tuple<llvm::BasicBlock const*, llvm::BasicBlock const*> bb_key;
 
   // Helper functions for debug output, pretty much self explanatory.
-  std::string _bb_to_str(llvm::BasicBlock const* bb) {
+  static std::string _bb_to_str(llvm::BasicBlock const* bb) {
       std::string str = "%";
       if (llvm::Function const* f = bb->getParent()) {
           str.append(f->getName());
@@ -38,7 +39,7 @@ namespace pcpo {
       return str;
   }
 
-  std::string _bb_key_to_str(bb_key key) {
+  static std::string _bb_key_to_str(bb_key key) {
       std::string str = "[";
       str.append(_bb_to_str(std::get<0>(key)));
       str.append(", ");
