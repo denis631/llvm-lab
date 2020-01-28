@@ -22,6 +22,9 @@
 
 namespace pcpo {
 
+using namespace llvm;
+using namespace std;
+
 static llvm::RegisterPass<AbstractInterpretationPass> Y("painpass", "AbstractInterpretation Pass");
 
 char AbstractInterpretationPass::ID;
@@ -97,15 +100,15 @@ public:
 
 template <typename AbstractState>
 struct Node {
-    llvm::BasicBlock const* basic_block;
-    llvm::BasicBlock const* callstring;
+    BasicBlock const* basic_block;
+    BasicBlock const* callstring;
     AbstractState state = {};
     bool update_scheduled = false; // Whether the node is already in the worklist
 
     // If this is set, the algorithm will add the initial values from the parameters of the
     // function to the incoming values, which is the correct thing to do for initial basic
     // blocks.
-    llvm::Function const* func_entry = nullptr;
+    Function const* func_entry = nullptr;
 };
 
 
@@ -121,26 +124,26 @@ template<typename AbstractState,
     int iterations_max = 1000,
     int callstack_depth = 1,
     Merge_op::Type merge_op = Merge_op::UPPER_BOUND>
-void executeFixpointAlgorithm(llvm::Module const& M) {
+void executeFixpointAlgorithm(Module const& M) {
     using Node = Node<AbstractState>;
 
     // A node in the control flow graph, i.e. a basic block. Here, we need a bit of additional data
     // per node to execute the fixpoint algorithm.
 
-    std::unordered_map<bb_key, Node> nodes;
-    std::vector<bb_key> worklist; // Contains the tuples of basic block and callstring, which is the key of a node, that need to be processed
+    unordered_map<bb_key, Node> nodes;
+    vector<bb_key> worklist; // Contains the tuples of basic block and callstring, which is the key of a node, that need to be processed
 
     // We only consider the main function in the beginning. If no main exists, nothing is evaluated!
-    llvm::Function const* main_func = M.getFunction("main");
+    Function const* main_func = M.getFunction("main");
 
     //creating dummy block for callstrings of the main block, since the main function is not called from another function
-    llvm::BasicBlock const* dummy_block = llvm::BasicBlock::Create(M.getContext(), "dummy");
+    BasicBlock const* dummy_block = BasicBlock::Create(M.getContext(), "dummy");
 
     // TODO: Check what this does for release clang, probably write out a warning
     dbgs(1) << "Initialising fixpoint algorithm, collecting basic blocks\n";
 
     // Register basic blocks of the main function
-    for (llvm::BasicBlock const& bb: *main_func) {
+    for (BasicBlock const& bb: *main_func) {
         dbgs(1) << "  Found basic block main." << bb.getName() << '\n';
 
         Node node;
@@ -149,11 +152,11 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
         // node.state is default initialised (to bottom)
 
         // nodes of main block have the callstring of a dummy block
-        nodes[std::make_tuple(&bb, dummy_block)] = node;
+        nodes[make_tuple(&bb, dummy_block)] = node;
     }
 
     // Push the initial block into the worklist
-    auto init_element = std::make_tuple(&main_func->getEntryBlock(), dummy_block);
+    auto init_element = make_tuple(&main_func->getEntryBlock(), dummy_block);
     worklist.push_back(init_element);
     nodes[init_element].update_scheduled = true;
     nodes[init_element].state = AbstractState {*main_func};
@@ -181,15 +184,15 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
             state_new.merge(merge_op, node.state);
         }
 
-        dbgs(1) << "  Merge of " << llvm::pred_size(node.basic_block)
-                << (llvm::pred_size(node.basic_block) != 1 ? " predecessors.\n" : " predecessor.\n");
+        dbgs(1) << "  Merge of " << pred_size(node.basic_block)
+                << (pred_size(node.basic_block) != 1 ? " predecessors.\n" : " predecessor.\n");
 
         // Collect the predecessors
-        std::vector<AbstractState> predecessors;
-        for (llvm::BasicBlock const* bb: llvm::predecessors(node.basic_block)) {
+        vector<AbstractState> predecessors;
+        for (BasicBlock const* bb: llvm::predecessors(node.basic_block)) {
             dbgs(3) << "    Merging basic block " << _bb_to_str(bb) << '\n';
 
-            AbstractState state_branched {nodes[std::make_tuple(bb, node.callstring)].state};
+            AbstractState state_branched {nodes[make_tuple(bb, node.callstring)].state};
             state_branched.branch(*bb, *node.basic_block);
             state_new.merge(merge_op, state_branched);
             predecessors.push_back(state_branched);
@@ -204,10 +207,10 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
             dbgs(3) << "    Basic block is unreachable, everything is bottom\n";
         } else {
             // Applies all instrucions of a basic block
-            for (llvm::Instruction const& inst: *node.basic_block) {
+            for (Instruction const& inst: *node.basic_block) {
 
                 // Handles return instructions
-                if (llvm::dyn_cast<llvm::ReturnInst>(&inst)) {
+                if (isa<ReturnInst>(&inst)) {
                     state_new.applyReturnInst(inst);
                 }
 
@@ -215,25 +218,25 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                 // it. (There are no side-effects in LLVM IR. (I hope.))
                 if (inst.use_empty()) {
                     // Except for call instructions, we still want to get that information
-                    if (not llvm::dyn_cast<llvm::CallInst>(&inst)) {
+                    if (not isa<CallInst>(&inst)) {
                         dbgs(3) << "    Empty use of instruction, skipping...\n";
                         continue;
                     }
                 }
 
                 // Handles merging points
-                if (llvm::dyn_cast<llvm::PHINode>(&inst)) {
+                if (isa<PHINode>(&inst)) {
 
                     state_new.applyPHINode(*node.basic_block, predecessors, inst);
 
                 // Handles function calls 
-                } else if (llvm::CallInst const* call = llvm::dyn_cast<llvm::CallInst>(&inst)) {
+                } else if (CallInst const* call = dyn_cast<CallInst>(&inst)) {
 
                     // Checks if an input parameter for the callee is bottom. If so,
                     // then skip the calculation of the call instruction for now
                     if (state_new.checkOperandsForBottom(inst)) continue;
 
-                    llvm::Function const* callee_func = call->getCalledFunction();
+                    Function const* callee_func = call->getCalledFunction();
 
                     // Checks for functions, such as printf and skips them
                     if (callee_func->empty()) {
@@ -241,7 +244,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                         continue;
                     }
 
-                    auto callee_element = std::make_tuple(&callee_func->getEntryBlock(), node.basic_block);
+                    auto callee_element = make_tuple(&callee_func->getEntryBlock(), node.basic_block);
                     bool changed;
 
                     // Checks whether a node with key [%callee entry block, %caller basic block],
@@ -252,7 +255,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                         dbgs(3) << "    No information regarding function call %" << call->getCalledFunction()->getName() << "\n";
 
                         // Register basic blocks
-                        for (llvm::BasicBlock const& bb : *callee_func) {
+                        for (BasicBlock const& bb : *callee_func) {
                             dbgs(4) << "      Found basic block " << _bb_to_str(&bb) << '\n';
 
                             Node callee_node;
@@ -260,7 +263,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                             callee_node.callstring = node.basic_block;
                             // node.state is default initialised (to bottom)
 
-                            nodes[std::make_tuple(&bb, node.basic_block)] = callee_node;
+                            nodes[make_tuple(&bb, node.basic_block)] = callee_node;
                         }
 
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
@@ -272,16 +275,16 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                     }
 
                     //Getting the last block
-                    llvm::BasicBlock const* end_block = &*std::prev(callee_func->end());
-                    auto end_element = std::make_tuple(end_block, node.basic_block);
+                    BasicBlock const* end_block = &*prev(callee_func->end());
+                    auto end_element = make_tuple(end_block, node.basic_block);
 
                     state_new.applyCallInst(inst, end_block, nodes[end_element].state);
 
                     // If input parameters have changed, we want to interpret the function once again
                     // and reevaluate the nodes of possible callers.
                     if (changed) {
-                        for (std::pair<const bb_key, Node>& i : nodes) {
-                            if (std::get<0>(i.first) == node.basic_block and not i.second.update_scheduled) {
+                        for (pair<const bb_key, Node>& i : nodes) {
+                            if (get<0>(i.first) == node.basic_block and not i.second.update_scheduled) {
                                 dbgs(3) << "      Adding possible caller " << _bb_key_to_str(i.first) << " to worklist\n";
                                 worklist.push_back(i.first);
                                 i.second.update_scheduled = true;
@@ -315,12 +318,12 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
         // No changes, so no need to do anything else
         if (not changed) continue;
 
-        dbgs(2) << "  State changed, notifying " << llvm::succ_size(node.basic_block)
-                << (llvm::succ_size(node.basic_block) != 1 ? " successors\n" : " successor\n");
+        dbgs(2) << "  State changed, notifying " << succ_size(node.basic_block)
+                << (succ_size(node.basic_block) != 1 ? " successors\n" : " successor\n");
 
         // Something changed and we will need to update the successors
-        for (llvm::BasicBlock const* succ_bb: llvm::successors(node.basic_block)) {
-            auto succ_key = std::make_tuple(succ_bb, node.callstring);
+        for (BasicBlock const* succ_bb: successors(node.basic_block)) {
+            auto succ_key = make_tuple(succ_bb, node.callstring);
             Node& succ = nodes[succ_key];
             if (not succ.update_scheduled) {
                 worklist.push_back(succ_key);
@@ -337,7 +340,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
      
     // Output the final result
     dbgs(0) << "\nFinal result:\n";
-    for (std::pair<bb_key, Node> i: nodes) {
+    for (pair<bb_key, Node> i: nodes) {
         dbgs(0) << _bb_key_to_str(i.first) << ":\n";
         i.second.state.printOutgoing(*i.second.basic_block, dbgs(0), 2);
     }
