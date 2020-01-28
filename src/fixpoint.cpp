@@ -117,9 +117,11 @@ struct Node {
 // well.
 //  Tip: Look at a diff of fixpoint.cpp and fixpoint_widening.cpp with a visual diff tool (I
 // recommend Meld.)
-template <typename AbstractState>
+template<typename AbstractState,
+    int iterations_max = 1000,
+    int callstack_depth = 1,
+    Merge_op::Type merge_op = Merge_op::UPPER_BOUND>
 void executeFixpointAlgorithm(llvm::Module const& M) {
-    constexpr int iterations_max = 1000;
     using Node = Node<AbstractState>;
 
     // A node in the control flow graph, i.e. a basic block. Here, we need a bit of additional data
@@ -176,7 +178,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
 
             // if it is the entry node, then its state should be top
             state_new.isBottom = false;
-            state_new.merge(Merge_op::UPPER_BOUND, node.state);
+            state_new.merge(merge_op, node.state);
         }
 
         dbgs(1) << "  Merge of " << llvm::pred_size(node.basic_block)
@@ -189,7 +191,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
 
             AbstractState state_branched {nodes[std::make_tuple(bb, node.callstring)].state};
             state_branched.branch(*bb, *node.basic_block);
-            state_new.merge(Merge_op::UPPER_BOUND, state_branched);
+            state_new.merge(merge_op, state_branched);
             predecessors.push_back(state_branched);
         }
 
@@ -266,7 +268,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
                         changed = true;
                     } else {
                         AbstractState state_update{ callee_func, state_new, call };
-                        changed = nodes[callee_element].state.merge(Merge_op::UPPER_BOUND, state_update);
+                        changed = nodes[callee_element].state.merge(merge_op, state_update);
                     }
 
                     //Getting the last block
@@ -306,7 +308,7 @@ void executeFixpointAlgorithm(llvm::Module const& M) {
 
         // Merge the state back into the node
         dbgs(3) << "  Merging with stored state\n";
-        bool changed = node.state.merge(Merge_op::UPPER_BOUND, state_new);
+        bool changed = node.state.merge(merge_op, state_new);
 
         dbgs(2) << "  Outgoing state is:\n"; state_new.printOutgoing(*node.basic_block, dbgs(2), 4);
 
