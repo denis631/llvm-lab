@@ -136,10 +136,13 @@ public:
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {};
 };
 
+using Callstring = vector<BasicBlock const *>;
+using NodeKey = pair<Callstring, BasicBlock const *>;
+
 template <typename AbstractState>
 struct Node {
     BasicBlock const* basic_block;
-    BasicBlock const* callstring;
+    Callstring callstring;
     AbstractState state = {};
     bool update_scheduled = false; // Whether the node is already in the worklist
 
@@ -168,8 +171,8 @@ void executeFixpointAlgorithm(Module const& M) {
     // A node in the control flow graph, i.e. a basic block. Here, we need a bit of additional data
     // per node to execute the fixpoint algorithm.
 
-    unordered_map<bb_key, Node> nodes;
-    vector<bb_key> worklist; // Contains the tuples of basic block and callstring, which is the key of a node, that need to be processed
+    unordered_map<NodeKey, Node> nodes;
+    vector<Node *> worklist;
 
     // We only consider the main function in the beginning. If no main exists, nothing is evaluated!
     Function const* main_func = M.getFunction("main");
@@ -186,16 +189,16 @@ void executeFixpointAlgorithm(Module const& M) {
 
         Node node;
         node.basic_block = &bb;
-        node.callstring = dummy_block;
+        node.callstring = {dummy_block};
         // node.state is default initialised (to bottom)
 
         // nodes of main block have the callstring of a dummy block
-        nodes[make_tuple(&bb, dummy_block)] = node;
+        nodes[{{dummy_block}, &bb}] = node;
     }
 
     // Push the initial block into the worklist
-    auto init_element = make_tuple(&main_func->getEntryBlock(), dummy_block);
-    worklist.push_back(init_element);
+    NodeKey init_element = {{dummy_block}, &main_func->getEntryBlock()};
+    worklist.push_back(&nodes[init_element]);
     nodes[init_element].update_scheduled = true;
     nodes[init_element].state = AbstractState {*main_func};
     nodes[init_element].func_entry = main_func;
@@ -204,13 +207,13 @@ void executeFixpointAlgorithm(Module const& M) {
             << ". Starting fixpoint iteration...\n";
 
     for (int iter = 0; !worklist.empty() and iter < iterations_max; ++iter) {
-        Node& node = nodes[worklist.back()];
+        Node& node = *worklist.back();
         worklist.pop_back();
         node.update_scheduled = false;
 
         dbgs(1) << "\nIteration " << iter << ", considering basic block "
                 << _bb_to_str(node.basic_block) << " with callstring "
-                << _bb_to_str(node.callstring) << '\n';
+                << "_bb_to_str(node.callstring)" << '\n';
 
         AbstractState state_new; // Set to bottom
 
@@ -230,7 +233,7 @@ void executeFixpointAlgorithm(Module const& M) {
         for (BasicBlock const* bb: llvm::predecessors(node.basic_block)) {
             dbgs(3) << "    Merging basic block " << _bb_to_str(bb) << '\n';
 
-            AbstractState state_branched {nodes[make_tuple(bb, node.callstring)].state};
+            AbstractState state_branched {nodes[{{node.callstring}, bb}].state};
             state_branched.branch(*bb, *node.basic_block);
             state_new.merge(merge_op, state_branched);
             predecessors.push_back(state_branched);
@@ -282,7 +285,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         continue;
                     }
 
-                    auto callee_element = make_tuple(&callee_func->getEntryBlock(), node.basic_block);
+                    NodeKey callee_element = {{node.basic_block}, &callee_func->getEntryBlock()};
                     bool changed;
 
                     // Checks whether a node with key [%callee entry block, %caller basic block],
@@ -298,10 +301,10 @@ void executeFixpointAlgorithm(Module const& M) {
 
                             Node callee_node;
                             callee_node.basic_block = &bb;
-                            callee_node.callstring = node.basic_block;
+                            callee_node.callstring = {node.basic_block};
                             // node.state is default initialised (to bottom)
 
-                            nodes[make_tuple(&bb, node.basic_block)] = callee_node;
+                            nodes[{{node.basic_block}, &bb}] = callee_node;
                         }
 
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
@@ -314,28 +317,28 @@ void executeFixpointAlgorithm(Module const& M) {
 
                     //Getting the last block
                     BasicBlock const* end_block = &*prev(callee_func->end());
-                    auto end_element = make_tuple(end_block, node.basic_block);
-
+                    NodeKey end_element = {{node.basic_block}, end_block};
                     state_new.applyCallInst(inst, end_block, nodes[end_element].state);
 
                     // If input parameters have changed, we want to interpret the function once again
                     // and reevaluate the nodes of possible callers.
                     if (changed) {
-                        for (pair<const bb_key, Node>& i : nodes) {
-                            if (get<0>(i.first) == node.basic_block and not i.second.update_scheduled) {
-                                dbgs(3) << "      Adding possible caller " << _bb_key_to_str(i.first) << " to worklist\n";
-                                worklist.push_back(i.first);
-                                i.second.update_scheduled = true;
+                        for (auto& [key, value]: nodes) {
+                            if (key.first[0] == node.basic_block and not value.update_scheduled) {
+                                dbgs(3) << "      Adding possible caller " << "_bb_key_to_str(i.first)" << " to worklist\n";
+                                worklist.push_back(&value);
+                                value.update_scheduled = true;
                             }
                         }
                         
                         // Checks if the key of the callee functions entry node is already on the worklist,
                         // this is necessary for recursions.
                         if (not nodes[callee_element].update_scheduled) {
-                            worklist.push_back(callee_element);
-                            nodes[callee_element].update_scheduled = true;
+                            auto& elem = nodes[callee_element];
+                            worklist.push_back(&elem);
+                            elem.update_scheduled = true;
                             
-                            dbgs(3) << "      Adding callee " << _bb_key_to_str(callee_element) << " to worklist\n";
+                            dbgs(3) << "      Adding callee " << "_bb_key_to_str(callee_element)" << " to worklist\n";
                         } else {
                             dbgs(3) << "      Callee already on worklist, nothing to add...\n";
                         }
@@ -361,13 +364,13 @@ void executeFixpointAlgorithm(Module const& M) {
 
         // Something changed and we will need to update the successors
         for (BasicBlock const* succ_bb: successors(node.basic_block)) {
-            auto succ_key = make_tuple(succ_bb, node.callstring);
+            NodeKey succ_key = {{node.callstring}, succ_bb};
             Node& succ = nodes[succ_key];
             if (not succ.update_scheduled) {
-                worklist.push_back(succ_key);
+                worklist.push_back(&succ);
                 succ.update_scheduled = true;
 
-                dbgs(3) << "    Adding " << _bb_key_to_str(succ_key) << " to worklist\n";
+                dbgs(3) << "    Adding " << "_bb_key_to_str(succ_key)" << " to worklist\n";
             }
         }
     }
@@ -378,9 +381,9 @@ void executeFixpointAlgorithm(Module const& M) {
      
     // Output the final result
     dbgs(0) << "\nFinal result:\n";
-    for (pair<bb_key, Node> i: nodes) {
-        dbgs(0) << _bb_key_to_str(i.first) << ":\n";
-        i.second.state.printOutgoing(*i.second.basic_block, dbgs(0), 2);
+    for (auto const& [key, node]: nodes) {
+        dbgs(0) << "_bb_key_to_str(key)" << ":\n";
+        node.state.printOutgoing(*node.basic_block, dbgs(0), 2);
     }
 
 }
