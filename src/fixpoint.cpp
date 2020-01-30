@@ -145,16 +145,16 @@ void executeFixpointAlgorithm(Module const& M) {
     dbgs(1) << "Initialising fixpoint algorithm, collecting basic blocks\n";
 
     // Register basic blocks of the main function
-    for (BasicBlock const& bb: *main_func) {
-        dbgs(1) << "  Found basic block main." << bb.getName() << '\n';
+    for (BasicBlock const& basic_block: *main_func) {
+        dbgs(1) << "  Found basic block main." << basic_block.getName() << '\n';
 
         Node node;
-        node.basic_block = &bb;
+        node.basic_block = &basic_block;
         node.callstring = {main_func};
         // node.state is default initialised (to bottom)
 
         // nodes of main block have the callstring of a dummy block
-        nodes[{{main_func}, &bb}] = node;
+        nodes[{{main_func}, &basic_block}] = node;
     }
 
     // Push the initial block into the worklist
@@ -190,11 +190,11 @@ void executeFixpointAlgorithm(Module const& M) {
 
         // Collect the predecessors
         vector<AbstractState> predecessors;
-        for (BasicBlock const* bb: llvm::predecessors(node.basic_block)) {
-            dbgs(3) << "    Merging basic block " << *bb << '\n';
+        for (BasicBlock const* basic_block: llvm::predecessors(node.basic_block)) {
+            dbgs(3) << "    Merging basic block " << *basic_block << '\n';
 
-            AbstractState state_branched {nodes[{{node.callstring}, bb}].state};
-            state_branched.branch(*bb, *node.basic_block);
+            AbstractState state_branched {nodes[{{node.callstring}, basic_block}].state};
+            state_branched.branch(*basic_block, *node.basic_block);
             state_new.merge(merge_op, state_branched);
             predecessors.push_back(state_branched);
         }
@@ -260,15 +260,15 @@ void executeFixpointAlgorithm(Module const& M) {
                         dbgs(3) << "    No information regarding function call %" << call->getCalledFunction()->getName() << "\n";
 
                         // Register basic blocks
-                        for (BasicBlock const& bb : *callee_func) {
-                            dbgs(4) << "      Found basic block " << bb << '\n';
+                        for (BasicBlock const& basic_block : *callee_func) {
+                            dbgs(4) << "      Found basic block " << basic_block << '\n';
 
                             Node callee_node;
-                            callee_node.basic_block = &bb;
+                            callee_node.basic_block = &basic_block;
                             callee_node.callstring = new_callstring;
                             // node.state is default initialised (to bottom)
 
-                            nodes[{new_callstring, &bb}] = callee_node;
+                            nodes[{new_callstring, &basic_block}] = callee_node;
                         }
 
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
