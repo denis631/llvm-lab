@@ -150,7 +150,10 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, BasicBlock const& basic_blo
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Callstring const& callstring) {
     for (auto call : callstring) {
-        os << call->getName() << " -> ";
+        os << call->getName();
+        if (call != callstring.back()) {
+            os << " -> ";
+        }
     }
     return os;
 }
