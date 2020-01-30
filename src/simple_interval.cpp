@@ -232,9 +232,6 @@ SimpleInterval SimpleInterval::merge(Merge_op::Type op, SimpleInterval a, Simple
     case Merge_op::UPPER_BOUND: return a._upperBound(b)._makeTopSpecial();
     case Merge_op::WIDEN:       return a._widen     (b)._makeTopSpecial();
     case Merge_op::NARROW:      return a._narrow    (b)._makeTopSpecial();
-    default:
-        assert(false /* invalid op value */);
-        return SimpleInterval {true};
     }
 }
 
