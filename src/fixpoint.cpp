@@ -135,7 +135,7 @@ public:
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {};
 };
 
-using Callstring = vector<BasicBlock const *>;
+using Callstring = vector<Function const *>;
 using NodeKey = pair<Callstring, BasicBlock const *>;
 
 // MARK: - To String
@@ -150,7 +150,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, BasicBlock const& basic_blo
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Callstring const& callstring) {
     for (auto call : callstring) {
-        os << *call << " -> ";
+        os << call->getName() << " -> ";
     }
     return os;
 }
@@ -163,14 +163,20 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NodeKey const& key) {
 template <typename AbstractState>
 struct Node {
     BasicBlock const* basic_block;
+    /// Function calls the lead to this basic block. The last element is always the current function.
     Callstring callstring;
     AbstractState state = {};
     bool update_scheduled = false; // Whether the node is already in the worklist
 
-    // If this is set, the algorithm will add the initial values from the parameters of the
-    // function to the incoming values, which is the correct thing to do for initial basic
-    // blocks.
-    Function const* func_entry = nullptr;
+    /// Check wether this basic block is the entry block of its function.
+    bool isEntry() const {
+        return basic_block == &function()->getEntryBlock();
+    }
+
+    /// Function in which this basic block is located.
+    Function const* function() const {
+        return callstring.back();
+    }
 };
 
 
@@ -198,9 +204,6 @@ void executeFixpointAlgorithm(Module const& M) {
     // We only consider the main function in the beginning. If no main exists, nothing is evaluated!
     Function const* main_func = M.getFunction("main");
 
-    //creating dummy block for callstrings of the main block, since the main function is not called from another function
-    BasicBlock const* dummy_block = BasicBlock::Create(M.getContext(), "dummy");
-
     // TODO: Check what this does for release clang, probably write out a warning
     dbgs(1) << "Initialising fixpoint algorithm, collecting basic blocks\n";
 
@@ -210,19 +213,18 @@ void executeFixpointAlgorithm(Module const& M) {
 
         Node node;
         node.basic_block = &bb;
-        node.callstring = {dummy_block};
+        node.callstring = {main_func};
         // node.state is default initialised (to bottom)
 
         // nodes of main block have the callstring of a dummy block
-        nodes[{{dummy_block}, &bb}] = node;
+        nodes[{{main_func}, &bb}] = node;
     }
 
     // Push the initial block into the worklist
-    NodeKey init_element = {{dummy_block}, &main_func->getEntryBlock()};
+    NodeKey init_element = {{main_func}, &main_func->getEntryBlock()};
     worklist.push_back(&nodes[init_element]);
     nodes[init_element].update_scheduled = true;
     nodes[init_element].state = AbstractState {*main_func};
-    nodes[init_element].func_entry = main_func;
 
     dbgs(1) << "\nWorklist initialised with " << worklist.size() << (worklist.size() != 1 ? " entries" : " entry")
             << ". Starting fixpoint iteration...\n";
@@ -238,7 +240,7 @@ void executeFixpointAlgorithm(Module const& M) {
 
         AbstractState state_new; // Set to bottom
 
-        if (node.func_entry) {
+        if (node.isEntry()) {
             dbgs(1) << "  Merging function parameters, is entry block\n";
 
             // if it is the entry node, then its state should be top
@@ -252,7 +254,7 @@ void executeFixpointAlgorithm(Module const& M) {
         // Collect the predecessors
         vector<AbstractState> predecessors;
         for (BasicBlock const* bb: llvm::predecessors(node.basic_block)) {
-            dbgs(3) << "    Merging basic block " << bb << '\n';
+            dbgs(3) << "    Merging basic block " << *bb << '\n';
 
             AbstractState state_branched {nodes[{{node.callstring}, bb}].state};
             state_branched.branch(*bb, *node.basic_block);
@@ -306,7 +308,11 @@ void executeFixpointAlgorithm(Module const& M) {
                         continue;
                     }
 
-                    NodeKey callee_element = {{node.basic_block}, &callee_func->getEntryBlock()};
+                    Callstring new_callstring = node.callstring;
+                    new_callstring.push_back(callee_func);
+
+
+                    NodeKey callee_element = {new_callstring, &callee_func->getEntryBlock()};
                     bool changed;
 
                     // Checks whether a node with key [%callee entry block, %caller basic block],
@@ -322,14 +328,13 @@ void executeFixpointAlgorithm(Module const& M) {
 
                             Node callee_node;
                             callee_node.basic_block = &bb;
-                            callee_node.callstring = {node.basic_block};
+                            callee_node.callstring = new_callstring;
                             // node.state is default initialised (to bottom)
 
-                            nodes[{{node.basic_block}, &bb}] = callee_node;
+                            nodes[{new_callstring, &bb}] = callee_node;
                         }
 
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
-                        nodes[callee_element].func_entry = callee_func;
                         changed = true;
                     } else {
                         AbstractState state_update{ callee_func, state_new, call };
@@ -338,14 +343,14 @@ void executeFixpointAlgorithm(Module const& M) {
 
                     //Getting the last block
                     BasicBlock const* end_block = &*prev(callee_func->end());
-                    NodeKey end_element = {{node.basic_block}, end_block};
+                    NodeKey end_element = {new_callstring, end_block};
                     state_new.applyCallInst(inst, end_block, nodes[end_element].state);
 
                     // If input parameters have changed, we want to interpret the function once again
                     // and reevaluate the nodes of possible callers.
                     if (changed) {
                         for (auto& [key, value]: nodes) {
-                            if (key.first[0] == node.basic_block and not value.update_scheduled) {
+                            if (key.second == node.basic_block and not value.update_scheduled) {
                                 dbgs(3) << "      Adding possible caller " << key << " to worklist\n";
                                 worklist.push_back(&value);
                                 value.update_scheduled = true;
