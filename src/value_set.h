@@ -3,12 +3,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constant.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include "global.h"
 

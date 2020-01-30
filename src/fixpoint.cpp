@@ -5,8 +5,6 @@
 
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/LoopInfo.h"
 
 #include "global.h"
 

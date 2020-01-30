@@ -1,7 +1,6 @@
 #pragma once
 
 #include <llvm/ADT/APInt.h>
-#include <llvm/IR/Constant.h>
 #include <llvm/IR/Instructions.h>
 
 #include "global.h"
