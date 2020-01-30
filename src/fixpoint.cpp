@@ -8,7 +8,6 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 
-#include "general.h"
 #include "global.h"
 #include "callstring.h"
 
@@ -139,6 +138,28 @@ public:
 using Callstring = vector<BasicBlock const *>;
 using NodeKey = pair<Callstring, BasicBlock const *>;
 
+// MARK: - To String
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, BasicBlock const& basic_block) {
+    os << "%";
+    if (llvm::Function const* f = basic_block.getParent()) {
+        os << f->getName() << ".";
+    }
+    return os << basic_block.getName();
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Callstring const& callstring) {
+    for (auto call : callstring) {
+        os << *call << " -> ";
+    }
+    return os;
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, NodeKey const& key) {
+    return os << "[" << *key.second << "," << key.first << "]";
+}
+
+
 template <typename AbstractState>
 struct Node {
     BasicBlock const* basic_block;
@@ -212,8 +233,8 @@ void executeFixpointAlgorithm(Module const& M) {
         node.update_scheduled = false;
 
         dbgs(1) << "\nIteration " << iter << ", considering basic block "
-                << _bb_to_str(node.basic_block) << " with callstring "
-                << "_bb_to_str(node.callstring)" << '\n';
+                << *node.basic_block << " with callstring "
+                << node.callstring << '\n';
 
         AbstractState state_new; // Set to bottom
 
@@ -231,7 +252,7 @@ void executeFixpointAlgorithm(Module const& M) {
         // Collect the predecessors
         vector<AbstractState> predecessors;
         for (BasicBlock const* bb: llvm::predecessors(node.basic_block)) {
-            dbgs(3) << "    Merging basic block " << _bb_to_str(bb) << '\n';
+            dbgs(3) << "    Merging basic block " << bb << '\n';
 
             AbstractState state_branched {nodes[{{node.callstring}, bb}].state};
             state_branched.branch(*bb, *node.basic_block);
@@ -297,7 +318,7 @@ void executeFixpointAlgorithm(Module const& M) {
 
                         // Register basic blocks
                         for (BasicBlock const& bb : *callee_func) {
-                            dbgs(4) << "      Found basic block " << _bb_to_str(&bb) << '\n';
+                            dbgs(4) << "      Found basic block " << bb << '\n';
 
                             Node callee_node;
                             callee_node.basic_block = &bb;
@@ -325,7 +346,7 @@ void executeFixpointAlgorithm(Module const& M) {
                     if (changed) {
                         for (auto& [key, value]: nodes) {
                             if (key.first[0] == node.basic_block and not value.update_scheduled) {
-                                dbgs(3) << "      Adding possible caller " << "_bb_key_to_str(i.first)" << " to worklist\n";
+                                dbgs(3) << "      Adding possible caller " << key << " to worklist\n";
                                 worklist.push_back(&value);
                                 value.update_scheduled = true;
                             }
@@ -338,7 +359,7 @@ void executeFixpointAlgorithm(Module const& M) {
                             worklist.push_back(&elem);
                             elem.update_scheduled = true;
                             
-                            dbgs(3) << "      Adding callee " << "_bb_key_to_str(callee_element)" << " to worklist\n";
+                            dbgs(3) << "      Adding callee " << callee_element << " to worklist\n";
                         } else {
                             dbgs(3) << "      Callee already on worklist, nothing to add...\n";
                         }
@@ -370,7 +391,7 @@ void executeFixpointAlgorithm(Module const& M) {
                 worklist.push_back(&succ);
                 succ.update_scheduled = true;
 
-                dbgs(3) << "    Adding " << "_bb_key_to_str(succ_key)" << " to worklist\n";
+                dbgs(3) << "    Adding " << succ_key << " to worklist\n";
             }
         }
     }
@@ -382,7 +403,7 @@ void executeFixpointAlgorithm(Module const& M) {
     // Output the final result
     dbgs(0) << "\nFinal result:\n";
     for (auto const& [key, node]: nodes) {
-        dbgs(0) << "_bb_key_to_str(key)" << ":\n";
+        dbgs(0) << key << ":\n";
         node.state.printOutgoing(*node.basic_block, dbgs(0), 2);
     }
 
