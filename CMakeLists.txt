@@ -117,6 +117,7 @@ set(pain_headers
   src/general.h
   src/global.h
   src/callstring.h
+  src/abstract_state.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
