@@ -116,7 +116,6 @@ set(pain_headers
   src/linear_equality.h
   src/general.h
   src/global.h
-  src/callstring.h
   src/abstract_state.h
   src/hash_utils.h
 )
