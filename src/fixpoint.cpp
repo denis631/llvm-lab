@@ -75,6 +75,18 @@ struct Node {
     }
 };
 
+Callstring callstring_from(Callstring const& callstring, int max_length) {
+    Callstring new_callstring;
+    for (auto call: callstring) {
+        if (--max_length > 0) {
+            new_callstring.push_back(call);
+        } else {
+            return new_callstring;
+        }
+    }
+    return new_callstring;
+}
+
 
 // Run the simple fixpoint algorithm with callstrings. AbstractState should implement the interface 
 // documented in AbstractStateDummy (no need to subclass or any of that, just implement the methods
@@ -204,7 +216,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         continue;
                     }
 
-                    Callstring new_callstring = node.callstring;
+                    Callstring new_callstring = callstring_from(node.callstring, callstack_depth);
                     new_callstring.push_back(callee_func);
 
 
