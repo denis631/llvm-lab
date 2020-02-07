@@ -78,7 +78,7 @@ struct Node {
 Callstring callstring_from(Callstring const& callstring, int max_length) {
     Callstring new_callstring;
     for (auto call: callstring) {
-        if (--max_length > 0) {
+        if (max_length-- > 0) {
             new_callstring.push_back(call);
         } else {
             return new_callstring;
