@@ -75,7 +75,7 @@ struct Node {
     }
 };
 
-Callstring callstring_from(Callstring const& callstring, int max_length) {
+Callstring callstring_for(Function const* function, Callstring const& callstring, int max_length) {
     Callstring new_callstring;
     for (auto call: callstring) {
         if (max_length-- > 0) {
@@ -84,7 +84,34 @@ Callstring callstring_from(Callstring const& callstring, int max_length) {
             return new_callstring;
         }
     }
+    new_callstring.push_back(function);
     return new_callstring;
+}
+
+
+template<typename AbstractState>
+vector<Node<AbstractState>*> register_function(llvm::Function const* function, Callstring const& callstring, int callstack_depth, unordered_map<pcpo::NodeKey, Node<AbstractState>> &nodes) {
+    Callstring new_callstring = callstring_for(function, callstring, callstack_depth);
+    vector<Node<AbstractState>*> inserted_nodes;
+    for (BasicBlock const& basic_block: *function) {
+        dbgs(1) << "  Found basic block: " << basic_block.getName() << '\n';
+        NodeKey key = {new_callstring, &basic_block};
+        Node<AbstractState> node = {&basic_block, new_callstring};
+        if (node.isEntry()) {
+            node.state = AbstractState {*node.function()};
+        }
+        nodes[key] = node;
+        inserted_nodes.push_back(&nodes[{new_callstring, &basic_block}]);
+    }
+    return inserted_nodes;
+}
+
+template<typename AbstractState>
+    void add_to_worklist(vector<Node<AbstractState>*> &nodes, vector<Node<AbstractState>*> &worklist) {
+    for (Node<AbstractState>* node : nodes) {
+        node->update_scheduled = true;
+        worklist.push_back(node);
+    }
 }
 
 
@@ -116,23 +143,8 @@ void executeFixpointAlgorithm(Module const& M) {
     dbgs(1) << "Initialising fixpoint algorithm, collecting basic blocks\n";
 
     // Register basic blocks of the main function
-    for (BasicBlock const& basic_block: *main_func) {
-        dbgs(1) << "  Found basic block main." << basic_block.getName() << '\n';
-
-        Node node;
-        node.basic_block = &basic_block;
-        node.callstring = {main_func};
-        // node.state is default initialised (to bottom)
-
-        // nodes of main block have the callstring of a dummy block
-        nodes[{{main_func}, &basic_block}] = node;
-    }
-
-    // Push the initial block into the worklist
-    NodeKey init_element = {{main_func}, &main_func->getEntryBlock()};
-    worklist.push_back(&nodes[init_element]);
-    nodes[init_element].update_scheduled = true;
-    nodes[init_element].state = AbstractState {*main_func};
+    auto registered = register_function(main_func, {}, callstack_depth, nodes);
+    add_to_worklist(registered, worklist);
 
     dbgs(1) << "\nWorklist initialised with " << worklist.size() << (worklist.size() != 1 ? " entries" : " entry")
             << ". Starting fixpoint iteration...\n";
@@ -216,9 +228,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         continue;
                     }
 
-                    Callstring new_callstring = callstring_from(node.callstring, callstack_depth);
-                    new_callstring.push_back(callee_func);
-
+                    Callstring new_callstring = callstring_for(callee_func, node.callstring, callstack_depth);
 
                     NodeKey callee_element = {new_callstring, &callee_func->getEntryBlock()};
                     bool changed;
@@ -230,17 +240,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         // Check if abstract_state of call.bb is bottom or not
                         dbgs(3) << "    No information regarding function call %" << call->getCalledFunction()->getName() << "\n";
 
-                        // Register basic blocks
-                        for (BasicBlock const& basic_block : *callee_func) {
-                            dbgs(4) << "      Found basic block " << basic_block << '\n';
-
-                            Node callee_node;
-                            callee_node.basic_block = &basic_block;
-                            callee_node.callstring = new_callstring;
-                            // node.state is default initialised (to bottom)
-
-                            nodes[{new_callstring, &basic_block}] = callee_node;
-                        }
+                        register_function(callee_func, node.callstring, callstack_depth, nodes);
 
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
                         changed = true;
