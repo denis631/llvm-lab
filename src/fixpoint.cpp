@@ -143,8 +143,8 @@ void executeFixpointAlgorithm(Module const& M) {
     dbgs(1) << "Initialising fixpoint algorithm, collecting basic blocks\n";
 
     // Register basic blocks of the main function
-    auto registered = register_function(main_func, {}, callstack_depth, nodes);
-    add_to_worklist(registered, worklist);
+    auto main_basic_blocks = register_function(main_func, {}, callstack_depth, nodes);
+    add_to_worklist(main_basic_blocks, worklist);
 
     dbgs(1) << "\nWorklist initialised with " << worklist.size() << (worklist.size() != 1 ? " entries" : " entry")
             << ". Starting fixpoint iteration...\n";
@@ -231,6 +231,7 @@ void executeFixpointAlgorithm(Module const& M) {
                     Callstring new_callstring = callstring_for(callee_func, node.callstring, callstack_depth);
 
                     NodeKey callee_element = {new_callstring, &callee_func->getEntryBlock()};
+                    vector<Node*> callee_basic_blocks;
                     bool changed;
 
                     // Checks whether a node with key [%callee entry block, %caller basic block],
@@ -240,7 +241,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         // Check if abstract_state of call.bb is bottom or not
                         dbgs(3) << "    No information regarding function call %" << call->getCalledFunction()->getName() << "\n";
 
-                        register_function(callee_func, node.callstring, callstack_depth, nodes);
+                        callee_basic_blocks = register_function(callee_func, node.callstring, callstack_depth, nodes);
 
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
                         changed = true;
@@ -267,14 +268,15 @@ void executeFixpointAlgorithm(Module const& M) {
                         
                         // Checks if the key of the callee functions entry node is already on the worklist,
                         // this is necessary for recursions.
-                        if (not nodes[callee_element].update_scheduled) {
-                            auto& elem = nodes[callee_element];
-                            worklist.push_back(&elem);
-                            elem.update_scheduled = true;
-                            
-                            dbgs(3) << "      Adding callee " << callee_element << " to worklist\n";
-                        } else {
-                            dbgs(3) << "      Callee already on worklist, nothing to add...\n";
+                        for (Node* elem: callee_basic_blocks) {
+                            if (!elem->update_scheduled) {
+                                worklist.push_back(elem);
+                                elem->update_scheduled = true;
+
+                                dbgs(3) << "      Adding callee " << elem->callstring << " to worklist\n";
+                            } else {
+                                dbgs(3) << "      Callee already on worklist, nothing to add...\n";
+                            }
                         }
                     }
                 } else {
