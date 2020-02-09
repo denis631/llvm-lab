@@ -16,6 +16,8 @@
 #include "fixpoint_two_var_eq.cpp"
 #include "hash_utils.h"
 
+#include "llvm/ADT/PostOrderIterator.h"
+
 namespace pcpo {
 
 using namespace llvm;
@@ -93,15 +95,21 @@ template<typename AbstractState>
 vector<Node<AbstractState>*> register_function(llvm::Function const* function, Callstring const& callstring, int callstack_depth, unordered_map<pcpo::NodeKey, Node<AbstractState>> &nodes) {
     Callstring new_callstring = callstring_for(function, callstring, callstack_depth);
     vector<Node<AbstractState>*> inserted_nodes;
-    for (BasicBlock const& basic_block: *function) {
-        dbgs(1) << "  Found basic block: " << basic_block.getName() << '\n';
-        NodeKey key = {new_callstring, &basic_block};
-        Node<AbstractState> node = {&basic_block, new_callstring};
+
+    for (po_iterator<BasicBlock const*> I = po_begin(&function->getEntryBlock()),
+         IE = po_end(&function->getEntryBlock());
+         I != IE; ++I) {
+
+        BasicBlock const* basic_block = *I;
+
+        dbgs(1) << "  Found basic block: " << basic_block->getName() << '\n';
+        NodeKey key = {new_callstring, basic_block};
+        Node<AbstractState> node = {basic_block, new_callstring};
         if (node.isEntry()) {
             node.state = AbstractState {*node.function()};
         }
+        inserted_nodes.push_back(&nodes[key]);
         nodes[key] = node;
-        inserted_nodes.push_back(&nodes[{new_callstring, &basic_block}]);
     }
     return inserted_nodes;
 }
