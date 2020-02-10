@@ -21,6 +21,7 @@ namespace pcpo {
 class NormalizedConjunction {
 public:
     std::unordered_map<llvm::Value const*, LinearEquality> values;
+    bool isBottom = false;
     
     NormalizedConjunction() = default;
     NormalizedConjunction(NormalizedConjunction const& state) = default;
@@ -32,7 +33,7 @@ public:
     explicit NormalizedConjunction(llvm::Function const* callee_func, NormalizedConjunction const& state, llvm::CallInst const* call);
     
     /// Handles the evaluation of merging points
-    void applyPHINode(llvm::BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values, llvm::PHINode const* phi);
+    void applyPHINode(llvm::BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values, llvm::Instruction const& phi);
     /// Handles the evaluation of function calls
     /// This is the "combine" function as described in "Compiler Design: Analysis and Transformation"
     void applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block, NormalizedConjunction const& callee_state);

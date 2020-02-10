@@ -42,7 +42,7 @@ NormalizedConjunction::NormalizedConjunction(std::unordered_map<llvm::Value cons
 
 /// Handles the evaluation of merging points
 void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values,
-                  llvm::PHINode const *phi) {
+                  llvm::Instruction const& phi) {
     std::vector<NormalizedConjunction> operands;
 
     // Phi nodes are handled here, to get the precise values of the predecessors
