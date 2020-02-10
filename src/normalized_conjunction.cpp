@@ -78,7 +78,7 @@ void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::B
 
 void NormalizedConjunction::applyReturnInst(llvm::Instruction const& inst) {
     llvm::Value const* ret_val = llvm::dyn_cast<llvm::ReturnInst>(&inst)->getReturnValue();
-    if (ret_val->getType()->isIntegerTy()) {
+    if (ret_val && ret_val->getType()->isIntegerTy()) {
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(ret_val)) {
             values[&inst] = LinearEquality(c);
         } else if (values.find(ret_val) != values.end()) {

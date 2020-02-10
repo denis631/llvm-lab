@@ -168,7 +168,7 @@ public:
     // Handles the evaluation of return instructions
     void applyReturnInst(llvm::Instruction const& inst) {
         llvm::Value const* ret_val = llvm::dyn_cast<llvm::ReturnInst>(&inst)->getReturnValue();
-        if (ret_val->getType()->isIntegerTy()) {
+        if (ret_val && ret_val->getType()->isIntegerTy()) {
             if (llvm::Constant const* c = llvm::dyn_cast<llvm::Constant>(ret_val)) {
                 values[&inst] = AbstractDomain{ *c };
             } else if (values.find(ret_val) != values.end()) {
