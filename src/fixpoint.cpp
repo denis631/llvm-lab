@@ -281,7 +281,7 @@ void executeFixpointAlgorithm(Module const& M) {
                                 worklist.push_back(elem);
                                 elem->update_scheduled = true;
 
-                                dbgs(3) << "      Adding callee " << elem->callstring << " to worklist\n";
+                                dbgs(3) << "      Adding callee " << *elem->basic_block << " " << elem->callstring << " to worklist\n";
                             } else {
                                 dbgs(3) << "      Callee already on worklist, nothing to add...\n";
                             }
