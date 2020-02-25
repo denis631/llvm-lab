@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
 // test program:
 // simple loop
 int xex(int b) {
@@ -7,7 +5,7 @@ int xex(int b) {
 }
 
 
-int main(int argc, char const *argv[]) {
+int main() {
     int x = -7;
 	x++;
 	for (int i = 0; i < 500; i++)
