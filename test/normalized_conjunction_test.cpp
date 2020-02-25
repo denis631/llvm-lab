@@ -15,6 +15,7 @@ class NormalizedConjunctionTest: NormalizedConjunction {
 
 public:
     static bool runTestAll();
+    static bool runTestMerge();
     static bool runTestX0();
     static bool runTestX1();
     static bool runTestX2();
@@ -87,6 +88,46 @@ bool NormalizedConjunctionTest::runTestAll() {
     
     result = actual.values == expected;
     
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+bool NormalizedConjunctionTest::runTestMerge() {
+    std::cout << "Testing all: ";
+    bool result = false;
+    std::unordered_map<Value const*, LinearEquality> expected = {
+        {x4, {x4, 3, x2, 5}},
+        {x5, {x5, 3, x3, 15}},
+        {x7, {x7, 1, x6, -1}},
+        {x10, {x10, 2, x9, 2}},
+        {x12, {x12, 2, x11, 1}}
+    };
+
+    std::unordered_map<Value const *, LinearEquality> x = {
+        {x1, {x1, 1, x1, 0}},
+        {x2, {x2, 1, x2, 0}},
+        {x3, {x3, 1, x1, 0}},
+        {x4, {x4, 3, x2, 5}},
+        {x5, {x5, 3, x1, 15}},
+        {x6, {x6, 1, x1, 3}},
+        {x7, {x7, 1, x1, 2}},
+        {x8, {x8, 7, x1, 15}},
+        {x9, {x9, 1, nullptr, 0}},
+        {x10, {x10, 1, nullptr, 2}},
+        {x11, {x11, 1, nullptr, 1}},
+        {x12, {x12, 1, nullptr, 3}}
+    };
+
+    std::unordered_map<Value const *, LinearEquality> y = {
+
+    };
+
+    auto actual = NormalizedConjunction(x);
+    auto other = NormalizedConjunction(y);
+    actual.merge(Merge_op::UPPER_BOUND, other);
+
+    result = actual.values == expected;
+
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
@@ -274,6 +315,7 @@ int main() {
              && NormalizedConjunctionTest::runTestX2()
              && NormalizedConjunctionTest::runTestX4()
              && NormalizedConjunctionTest::runTestAll()
+             && NormalizedConjunctionTest::runTestMerge()
              && NormalizedConjunctionTest::runNonDeterministicAssignmentTest1()
              && NormalizedConjunctionTest::runNonDeterministicAssignmentTest2()
              && NormalizedConjunctionTest::runLinearAssignmentTest1()
