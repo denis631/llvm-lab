@@ -17,6 +17,7 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const& f) {
     for (llvm::Argument const& arg: f.args()) {
         values[&arg] = LinearEquality(&arg);
     }
+    isBottom = false;
 }
 
 NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, NormalizedConjunction const& state, llvm::CallInst const* call) {
@@ -31,10 +32,12 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
             }
         }
     }
+    isBottom = false;
 }
 
 NormalizedConjunction::NormalizedConjunction(std::unordered_map<llvm::Value const*, LinearEquality> equalaties) {
     this->values = equalaties;
+    isBottom = equalaties.empty();
 }
 
 
@@ -123,7 +126,16 @@ void NormalizedConjunction::applyDefault(llvm::Instruction const& inst) {
 }
 
 bool NormalizedConjunction::merge(Merge_op::Type op, NormalizedConjunction const& other) {
-    
+    bool changed = false;
+
+    if (other.isBottom) {
+        return false;
+    } else if (isBottom) {
+        values = other.values;
+        isBottom = false;
+        return true;
+    }
+
     switch (op) {
         case Merge_op::UPPER_BOUND: return leastUpperBound(other);
         default: abort();
