@@ -7,6 +7,8 @@
 
 #include "normalized_conjunction.h"
 
+#include "llvm/IR/CFG.h"
+
 using namespace llvm;
 
 namespace pcpo {
@@ -46,13 +48,31 @@ NormalizedConjunction::NormalizedConjunction(std::unordered_map<llvm::Value cons
 /// Handles the evaluation of merging points
 void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values,
                   llvm::Instruction const& phi) {
-    std::vector<NormalizedConjunction> operands;
+    llvm::PHINode const* phiNode = llvm::dyn_cast<llvm::PHINode>(&phi);
 
-    // Phi nodes are handled here, to get the precise values of the predecessors
-    for (auto& incoming_state: pred_values) {
-        merge(Merge_op::UPPER_BOUND, incoming_state);
-        operands.push_back(incoming_state); // Keep the debug output happy
+    int i = 0;
+
+    for (BasicBlock const* pred_bb: llvm::predecessors(&bb)) {
+        auto& incoming_value = *phiNode->getIncomingValueForBlock(pred_bb);
+        auto& incoming_state = pred_values[i];
+
+//        LinearEquality pred_value = incoming_state.getAbstractValue(incoming_value);
+
+        if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
+            linearAssignment(&phi, 1, nullptr, c->getSExtValue());
+        } else {
+            LinearEquality pred_value = incoming_state.values[&incoming_value];
+            linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
+        }
+
+        i++;
     }
+
+//    // Phi nodes are handled here, to get the precise values of the predecessors
+//    for (auto& incoming_state: pred_values) {
+//        merge(Merge_op::UPPER_BOUND, incoming_state);
+//        operands.push_back(incoming_state); // Keep the debug output happy
+//    }
 }
 
 void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block, NormalizedConjunction const& callee_state) {
