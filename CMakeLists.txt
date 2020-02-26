@@ -158,7 +158,7 @@ target_link_libraries(normalized_conjunction_test
 enable_testing()
 
 add_test(NAME intervalAnalysisTest
-  COMMAND opt --load $<TARGET_FILE:llvm-pain> --painpass -S ${CMAKE_SOURCE_DIR}/output/add-1.c.ll
+  COMMAND opt --load $<TARGET_FILE:llvm-pain> --painpass -S ${CMAKE_SOURCE_DIR}/foo/add-1.ll
 )
 
 add_test(NAME simpleIntervalTest
@@ -168,3 +168,74 @@ add_test(NAME simpleIntervalTest
 add_test(NAME normalizedConjunctionTest
    COMMAND normalized_conjunction_test
 )
+
+set(SAMPLES
+  add-1-float
+  add-1
+  add-2
+  add-3
+  add-4
+  basic_function
+  branching
+  cmp-two-variables-1
+  cmp-two-variables-2
+  euler-48
+  euler
+  example
+  for-loop-1
+  for
+  func-test-1
+  func-test-2
+  func-test-3
+  func-test-4
+  func-test-5
+  func-test-for
+  func-test-rec-endless
+  func-test-rec
+  func-test-switch
+  gcd
+  goto
+  if-and
+  if-multiple-of-4
+  if-then-else-2
+  if-then-else-complicated
+  if-then-else-two-constraints
+  if-then-else
+  multiple-functions
+  ops
+  switch-2
+  switch-3
+  switch-two-labels
+  switch
+  while-1
+  while-2
+  while-bigger-steps
+  while-neg
+)
+
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/output)
+
+if (APPLE)
+
+foreach(src ${SAMPLES})
+  add_custom_command(
+    TARGET normalized_conjunction_test
+      COMMAND clang --sysroot ${CMAKE_OSX_SYSROOT} -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/foo/${src}.bc
+      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/foo/${src}.bc -o ${CMAKE_SOURCE_DIR}/foo/${src}.ll
+    DEPENDS clang opt
+  )
+endforeach(src)
+
+else()
+
+foreach(src ${SAMPLES})
+  add_custom_command(
+    TARGET normalized_conjunction_test
+      COMMAND clang -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/foo/${src}.bc
+      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/foo/${src}.bc -o ${CMAKE_SOURCE_DIR}/foo/${src}.ll
+    DEPENDS clang opt
+  )
+endforeach(src)
+
+
+endif()
