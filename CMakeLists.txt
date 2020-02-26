@@ -98,7 +98,7 @@ else()
   )
 endif()
 
-set(pain_sources
+set(PAIN_SOURCES
   src/fixpoint.cpp
   src/fixpoint_widening.cpp
   src/fixpoint_two_var_eq.cpp
@@ -108,7 +108,7 @@ set(pain_sources
   src/linear_equality.cpp
 )
 
-set(pain_headers
+set(PAIN_HEADERS
   src/fixpoint.h
   src/value_set.h
   src/simple_interval.h
@@ -123,8 +123,8 @@ set(pain_headers
 include_directories(${LLVM_INCLUDE_DIRS})
 
 add_llvm_library(llvm-pain MODULE
-  ${pain_sources}
-  ${pain_headers}
+  ${PAIN_SOURCES}
+  ${PAIN_HEADERS}
   DEPENDS
   intrinsics_gen
   PLUGIN_TOOL
@@ -133,8 +133,8 @@ add_llvm_library(llvm-pain MODULE
 
 add_llvm_executable(simple_interval_test
    test/simple_interval_test.cpp
-   ${pain_headers}
-   ${pain_sources}
+   ${PAIN_HEADERS}
+   ${PAIN_SOURCES}
    DEPENDS
    intrinsics_gen
 )
@@ -145,8 +145,8 @@ target_link_libraries(simple_interval_test
 
 add_llvm_executable(normalized_conjunction_test
    test/normalized_conjunction_test.cpp
-   ${pain_headers}
-   ${pain_sources}
+   ${PAIN_HEADERS}
+   ${PAIN_SOURCES}
    DEPENDS
    intrinsics_gen
 )
