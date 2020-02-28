@@ -95,13 +95,6 @@ bool NormalizedConjunctionTest::runTestAll() {
 bool NormalizedConjunctionTest::runTestMerge() {
     std::cout << "Testing merge: ";
     bool result = false;
-    std::unordered_map<Value const*, LinearEquality> expected = {
-        {x4, {x4, 3, x2, 5}},
-        {x5, {x5, 3, x3, 15}},
-        {x7, {x7, 1, x6, -1}},
-        {x10, {x10, 2, x9, 2}},
-        {x12, {x12, 2, x11, 1}}
-    };
 
     std::unordered_map<Value const *, LinearEquality> x = {
         {x1, {x1, 1, x1, 0}},
@@ -126,7 +119,7 @@ bool NormalizedConjunctionTest::runTestMerge() {
     auto other = NormalizedConjunction(y);
     actual.merge(Merge_op::UPPER_BOUND, other);
 
-    result = actual.values == expected;
+    result = actual.values == x;
 
     std::cout << (result? "success" : "failed") << "\n";
     return result;
