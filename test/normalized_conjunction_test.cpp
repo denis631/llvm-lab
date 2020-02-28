@@ -93,7 +93,7 @@ bool NormalizedConjunctionTest::runTestAll() {
 }
 
 bool NormalizedConjunctionTest::runTestMerge() {
-    std::cout << "Testing all: ";
+    std::cout << "Testing merge: ";
     bool result = false;
     std::unordered_map<Value const*, LinearEquality> expected = {
         {x4, {x4, 3, x2, 5}},
