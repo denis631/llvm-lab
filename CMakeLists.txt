@@ -158,7 +158,7 @@ target_link_libraries(normalized_conjunction_test
 enable_testing()
 
 add_test(NAME intervalAnalysisTest
-  COMMAND opt --load $<TARGET_FILE:llvm-pain> --painpass -S ${CMAKE_SOURCE_DIR}/foo/add-1.ll
+  COMMAND opt --load $<TARGET_FILE:llvm-pain> --painpass -S ${CMAKE_SOURCE_DIR}/output/add-1.ll
 )
 
 add_test(NAME simpleIntervalTest
@@ -220,8 +220,8 @@ if (APPLE)
 foreach(src ${SAMPLES})
   add_custom_command(
     TARGET normalized_conjunction_test
-      COMMAND clang --sysroot ${CMAKE_OSX_SYSROOT} -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/foo/${src}.bc
-      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/foo/${src}.bc -o ${CMAKE_SOURCE_DIR}/foo/${src}.ll
+      COMMAND clang --sysroot ${CMAKE_OSX_SYSROOT} -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
+      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
     DEPENDS clang opt
   )
 endforeach(src)
@@ -231,8 +231,8 @@ else()
 foreach(src ${SAMPLES})
   add_custom_command(
     TARGET normalized_conjunction_test
-      COMMAND clang -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/foo/${src}.bc
-      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/foo/${src}.bc -o ${CMAKE_SOURCE_DIR}/foo/${src}.ll
+      COMMAND clang -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
+      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
     DEPENDS clang opt
   )
 endforeach(src)
