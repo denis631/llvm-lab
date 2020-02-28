@@ -127,6 +127,7 @@ add_llvm_library(llvm-pain MODULE
   ${PAIN_HEADERS}
   DEPENDS
   intrinsics_gen
+  irgen
   PLUGIN_TOOL
   opt
 )
@@ -136,6 +137,7 @@ add_llvm_executable(simple_interval_test
    ${PAIN_HEADERS}
    ${PAIN_SOURCES}
    DEPENDS
+   irgen
    intrinsics_gen
 )
 
@@ -148,6 +150,7 @@ add_llvm_executable(normalized_conjunction_test
    ${PAIN_HEADERS}
    ${PAIN_SOURCES}
    DEPENDS
+   irgen
    intrinsics_gen
 )
 
@@ -213,16 +216,19 @@ set(SAMPLES
   while-neg
 )
 
+add_custom_target(irgen)
+
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/output)
 
 if (APPLE)
 
 foreach(src ${SAMPLES})
   add_custom_command(
-    TARGET normalized_conjunction_test
-      COMMAND clang --sysroot ${CMAKE_OSX_SYSROOT} -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
-      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
+    TARGET irgen
+    COMMAND clang --sysroot ${CMAKE_OSX_SYSROOT} -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
+    COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
     DEPENDS clang opt
+    COMMENT "Generating LLVM IR for example ${src}"
   )
 endforeach(src)
 
@@ -230,12 +236,13 @@ else()
 
 foreach(src ${SAMPLES})
   add_custom_command(
-    TARGET normalized_conjunction_test
-      COMMAND clang -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
-      COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
+    TARGET irgen
+    COMMAND clang -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
+    COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
     DEPENDS clang opt
+    COMMENT "Generating LLVM IR for example ${src}"
+
   )
 endforeach(src)
-
 
 endif()
