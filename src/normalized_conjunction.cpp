@@ -19,7 +19,7 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const& f) {
     for (llvm::Argument const& arg: f.args()) {
         values[&arg] = LinearEquality(&arg);
     }
-    isBottom = false;
+    isBottom = f.arg_empty();
 }
 
 NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, NormalizedConjunction const& state, llvm::CallInst const* call) {
