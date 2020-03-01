@@ -172,8 +172,8 @@ void executeFixpointAlgorithm(Module const& M) {
             dbgs(1) << "  Merging function parameters, is entry block\n";
 
             // if it is the entry node, then its state should be top
-            state_new.isBottom = false;
             state_new.merge(merge_op, node.state);
+            state_new.isBottom = false;
         }
 
         dbgs(1) << "  Merge of " << pred_size(node.basic_block)
