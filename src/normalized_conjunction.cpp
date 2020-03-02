@@ -31,6 +31,7 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
                 values[&arg] = { &arg, 1 , nullptr, c->getSExtValue() };
             } else {
                 LinearEquality value_equality = state.values.at(value);
+                LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
                 values[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
             }
         }
@@ -57,23 +58,18 @@ void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector
         auto& incoming_value = *phiNode->getIncomingValueForBlock(pred_bb);
         auto& incoming_state = pred_values[i];
 
-//        LinearEquality pred_value = incoming_state.getAbstractValue(incoming_value);
-
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
             linearAssignment(&phi, 1, nullptr, c->getSExtValue());
         } else {
-            LinearEquality pred_value = incoming_state.values[&incoming_value];
-            linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
+            if (incoming_state.values.count(&incoming_value) != 0) {
+                LinearEquality pred_value = incoming_state.values[&incoming_value];
+                linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
+            } else {
+                nonDeterminsticAssignment(&phi);
+            }
         }
-
         i++;
     }
-
-//    // Phi nodes are handled here, to get the precise values of the predecessors
-//    for (auto& incoming_state: pred_values) {
-//        merge(Merge_op::UPPER_BOUND, incoming_state);
-//        operands.push_back(incoming_state); // Keep the debug output happy
-//    }
 }
 
 void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block, NormalizedConjunction const& callee_state) {
