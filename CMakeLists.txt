@@ -216,7 +216,16 @@ set(SAMPLES
   while-neg
 )
 
-add_custom_target(irgen)
+list(TRANSFORM SAMPLES APPEND ".c" OUTPUT_VARIABLE SAMPLES_C)
+list(TRANSFORM SAMPLES APPEND ".bc" OUTPUT_VARIABLE SAMPLES_BC)
+list(TRANSFORM SAMPLES APPEND ".ll" OUTPUT_VARIABLE SAMPLES_LL)
+list(TRANSFORM SAMPLES_LL PREPEND "${CMAKE_SOURCE_DIR}/output/")
+list(TRANSFORM SAMPLES_BC PREPEND "${CMAKE_SOURCE_DIR}/output/")
+list(TRANSFORM SAMPLES_C PREPEND "${CMAKE_SOURCE_DIR}/samples/")
+
+add_custom_target(irgen
+  DEPENDS ${SAMPLES_LL} ${SAMPLES_BC}
+)
 
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/output)
 
@@ -224,10 +233,10 @@ if (APPLE)
 
 foreach(src ${SAMPLES})
   add_custom_command(
-    TARGET irgen
+    OUTPUT ${CMAKE_SOURCE_DIR}/output/${src}.ll
     COMMAND clang --sysroot ${CMAKE_OSX_SYSROOT} -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
     COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
-    DEPENDS clang opt
+    DEPENDS clang opt ${CMAKE_SOURCE_DIR}/samples/${src}.c
     COMMENT "Generating LLVM IR for example ${src}"
   )
 endforeach(src)
@@ -236,12 +245,11 @@ else()
 
 foreach(src ${SAMPLES})
   add_custom_command(
-    TARGET irgen
+    OUTPUT ${CMAKE_SOURCE_DIR}/output/${src}.ll
     COMMAND clang -O0 -emit-llvm ${CMAKE_SOURCE_DIR}/samples/${src}.c -Xclang -disable-O0-optnone -c -o ${CMAKE_SOURCE_DIR}/output/${src}.bc
     COMMAND opt -S -mem2reg ${CMAKE_SOURCE_DIR}/output/${src}.bc -o ${CMAKE_SOURCE_DIR}/output/${src}.ll
-    DEPENDS clang opt
+    DEPENDS clang opt ${CMAKE_SOURCE_DIR}/samples/${src}.c
     COMMENT "Generating LLVM IR for example ${src}"
-
   )
 endforeach(src)
 
