@@ -159,7 +159,7 @@ bool NormalizedConjunction::merge(Merge_op::Type op, NormalizedConjunction const
     }
 }
 
-// MARK: Lattice Operations
+// MARK: - Lattice Operations
 
 bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
     // set of all occuring variables in E1 and E2
@@ -218,6 +218,8 @@ bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
 
     return changed;
 }
+
+// MARK: Helpers
 
 /// XO / E'0: set of variables where the right hand side in E1 and E2 coincide
 std::set<LinearEquality> NormalizedConjunction::computeX0(std::set<LinearEquality> const& E1, std::set<LinearEquality> const& E2) {
@@ -382,7 +384,7 @@ std::set<LinearEquality> NormalizedConjunction::computeX4(std::set<LinearEqualit
     return X4;
 }
 
-// MARK: Abstract Assignments
+// MARK: - Abstract Assignments
 
 /// [xi := ?]
 void NormalizedConjunction::nonDeterminsticAssignment( Value const* xi) {
@@ -407,6 +409,7 @@ void NormalizedConjunction::nonDeterminsticAssignment( Value const* xi) {
         }
         values[xi] = {xi, 1, xi, 0};
     }
+
 }
 
 /// [xi := a * xj + b]
@@ -437,7 +440,7 @@ void NormalizedConjunction::linearAssignment(Value const* xi, int64_t a, Value c
     }
 }
 
-// MARK: Abstract Operations
+// MARK: - Abstract Operations
 
 // [xi := xj + b]
 // [xi := xj + xk]
