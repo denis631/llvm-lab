@@ -105,9 +105,9 @@ vector<Node<AbstractState>*> register_function(llvm::Function const* function, C
         dbgs(1) << "  Found basic block: " << basic_block->getName() << '\n';
         NodeKey key = {new_callstring, basic_block};
         Node<AbstractState> node = {basic_block, new_callstring};
-        if (node.isEntry()) {
-            node.state = AbstractState {*node.function()};
-        }
+//        if (node.isEntry()) {
+//            node.state = AbstractState {*node.function()};
+//        }
         inserted_nodes.push_back(&nodes[key]);
         nodes[key] = node;
     }
@@ -226,7 +226,7 @@ void executeFixpointAlgorithm(Module const& M) {
 
                     // Checks if an input parameter for the callee is bottom. If so,
                     // then skip the calculation of the call instruction for now
-                    if (state_new.checkOperandsForBottom(inst)) continue;
+//                    if (state_new.checkOperandsForBottom(inst)) continue;
 
                     Function const* callee_func = call->getCalledFunction();
 
@@ -254,8 +254,22 @@ void executeFixpointAlgorithm(Module const& M) {
                         nodes[callee_element].state = AbstractState{ callee_func, state_new, call };
                         changed = true;
                     } else {
-                        AbstractState state_update{ callee_func, state_new, call };
-                        changed = nodes[callee_element].state.merge(merge_op, state_update);
+                        //update callee
+                        NormalizedConjunction before = nodes[callee_element].state;
+                        for (llvm::Argument const& arg: callee_func->args()) {
+                            llvm::Value* value = call->getArgOperand(arg.getArgNo());
+                            if (value->getType()->isIntegerTy()) {
+                                if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(value)) {
+                                    nodes[callee_element].state.values[&arg] = { &arg, 1 , nullptr, c->getSExtValue() };
+                                } else {
+                                    LinearEquality value_equality = state_new.values.at(value);
+                                    LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
+                                    nodes[callee_element].state.values[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
+                                }
+                            }
+                        }
+                        nodes[callee_element].state.isBottom = false;
+                        changed = before.values != nodes[callee_element].state.values;
                     }
 
                     //Getting the last block
@@ -288,7 +302,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         }
                     }
                 } else {
-                    if (state_new.checkOperandsForBottom(inst)) continue;
+//                    if (state_new.checkOperandsForBottom(inst)) continue;
                     state_new.applyDefault(inst);
                 }
             }
@@ -336,10 +350,10 @@ bool AbstractInterpretationPass::runOnModule(llvm::Module& M) {
     using AbstractState = AbstractStateValueSet<SimpleInterval>;
 
     // Use either the standard fixpoint algorithm or the version with widening
-     executeFixpointAlgorithm<AbstractState>(M);
+//     executeFixpointAlgorithm<AbstractState>(M);
 //    executeFixpointAlgorithmWidening<AbstractState>(M);
 
-//    executeFixpointAlgorithmTwoVarEq<NormalizedConjunction>(M);
+    executeFixpointAlgorithm<NormalizedConjunction>(M);
 
     // We never change anything
     return false;
