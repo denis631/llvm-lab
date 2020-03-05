@@ -211,7 +211,7 @@ void executeFixpointAlgorithm(Module const& M) {
                 if (inst.use_empty()) {
                     // Except for call instructions, we still want to get that information
                     if (not isa<CallInst>(&inst)) {
-                        dbgs(3) << "    Empty use of instruction, skipping...\n";
+                        dbgs(3) << "    Empty use of instruction, " << inst.getOpcodeName() << " skipping...\n";
                         continue;
                     }
                 }
