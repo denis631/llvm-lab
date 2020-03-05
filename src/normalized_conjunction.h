@@ -21,6 +21,7 @@ namespace pcpo {
 class NormalizedConjunction {
 public:
     std::unordered_map<llvm::Value const*, LinearEquality> values;
+    std::set<llvm::Value const*> validVariables;
     bool isBottom = true;
     
     NormalizedConjunction() = default;

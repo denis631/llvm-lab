@@ -18,6 +18,7 @@ namespace pcpo {
 NormalizedConjunction::NormalizedConjunction(llvm::Function const& f) {
     for (llvm::Argument const& arg: f.args()) {
         values[&arg] = LinearEquality(&arg);
+        validVariables.insert(&arg);
     }
     isBottom = f.arg_empty();
 }
@@ -34,6 +35,7 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
                 LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
                 values[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
             }
+            validVariables.insert(&arg);
         }
     }
     isBottom = false;
@@ -42,6 +44,9 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
 NormalizedConjunction::NormalizedConjunction(std::unordered_map<llvm::Value const*, LinearEquality> equalaties) {
     this->values = equalaties;
     isBottom = equalaties.empty();
+    for (auto& [key, value]: equalaties) {
+        validVariables.insert(key);
+    }
 }
 
 
@@ -88,6 +93,7 @@ void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::B
             if (callee_state.values.find(ret_val) != callee_state.values.end()) {
                 dbgs(4) << "\t\tReturn evaluated, merging parameters\n";
                 values[&inst] = callee_state.values.at(ret_val);
+                validVariables.insert(&inst);
             } else {
                 dbgs(4) << "\t\tReturn not evaluated, setting to bottom\n";
             }
@@ -105,6 +111,7 @@ void NormalizedConjunction::applyReturnInst(llvm::Instruction const& inst) {
             values[&inst] = values.at(ret_val);
         }
     }
+    validVariables.insert(&inst);
 }
 
 void NormalizedConjunction::applyDefault(llvm::Instruction const& inst) {
@@ -143,12 +150,11 @@ void NormalizedConjunction::applyDefault(llvm::Instruction const& inst) {
 }
 
 bool NormalizedConjunction::merge(Merge_op::Type op, NormalizedConjunction const& other) {
-    bool changed = false;
-
     if (other.isBottom) {
         return false;
     } else if (isBottom) {
         values = other.values;
+        validVariables = other.validVariables;
         isBottom = false;
         return true;
     }
@@ -182,14 +188,22 @@ bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
             
     // extend E1 by trivial equalities
     for (auto d: dX1) {
-        LinearEquality eq = {d, 1, d, 0};
-        E1.insert(eq);
+        if (validVariables.count(d) > 0) {
+            LinearEquality eq = {d, 1, d, 0};
+            E1.insert(eq);
+        } else {
+            E1.insert(rhs.values[d]);
+        }
     }
     
     // extend E2 by trivial equalities
     for (auto d: dX2) {
-        LinearEquality eq = {d, 1, d, 0};
-        E2.insert(eq);
+        if (rhs.validVariables.count(d) > 0) {
+            LinearEquality eq = {d, 1, d, 0};
+            E2.insert(eq);
+        } else {
+            E2.insert(values[d]);
+        }
     }
     
     std::set<LinearEquality> X0 = computeX0(E1, E2);
@@ -215,6 +229,7 @@ bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
     bool changed = values != result;
     
     values = result;
+    validVariables.insert(rhs.validVariables.begin(), rhs.validVariables.end());
 
     return changed;
 }
@@ -390,6 +405,7 @@ std::set<LinearEquality> NormalizedConjunction::computeX4(std::set<LinearEqualit
 void NormalizedConjunction::nonDeterminsticAssignment(Value const* xi) {
     assert(xi != nullptr && "xi cannot be NULL");
     auto xj = values[xi].x;
+    validVariables.insert(xi);
     
     if (xi != xj && xj != 0) {
         values[xi] = {xi, 1, xi, 0};
@@ -417,7 +433,8 @@ void NormalizedConjunction::linearAssignment(Value const* xi, int64_t a, Value c
     assert(xi != nullptr && "xi cannot be NULL");
 
     nonDeterminsticAssignment(xi);
-    
+    validVariables.insert(xi);
+
     // make sure xj exists
     auto xjS = values.find(xj) != values.end() ? values[xj].x : nullptr;
     auto bS = values.find(xj) != values.end() ? values[xj].b : 0;
