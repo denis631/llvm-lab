@@ -387,7 +387,7 @@ std::set<LinearEquality> NormalizedConjunction::computeX4(std::set<LinearEqualit
 // MARK: - Abstract Assignments
 
 /// [xi := ?]
-void NormalizedConjunction::nonDeterminsticAssignment( Value const* xi) {
+void NormalizedConjunction::nonDeterminsticAssignment(Value const* xi) {
     assert(xi != nullptr && "xi cannot be NULL");
     auto xj = values[xi].x;
     
@@ -553,7 +553,7 @@ void NormalizedConjunction::Mul(Instruction const& inst) {
     }
 }
 
-// MARK: Debug
+// MARK: - Debug
 
 void NormalizedConjunction::debug_output(llvm::Instruction const& inst, std::vector<LinearEquality> operands) {
     dbgs(3).indent(2) << inst << " // " << values.at(&inst) << ", args ";
