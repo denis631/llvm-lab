@@ -51,6 +51,9 @@ public:
     // Abstract Assignments
     void linearAssignment(llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
     void nonDeterminsticAssignment(llvm::Value const* xi);
+
+    // Operators
+    LinearEquality& operator[](llvm::Value const*);
     
 protected:
     // Abstract Operators

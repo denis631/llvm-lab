@@ -553,6 +553,16 @@ void NormalizedConjunction::Mul(Instruction const& inst) {
     }
 }
 
+// MARK: - Operators
+
+LinearEquality& NormalizedConjunction::operator[](Value const* value) {
+    if (values.count(value) == 0) {
+        LinearEquality eq = {value, 1, value, 0};
+        values[value] = eq;
+    }
+    return values[value];
+}
+
 // MARK: - Debug
 
 void NormalizedConjunction::debug_output(llvm::Instruction const& inst, std::vector<LinearEquality> operands) {

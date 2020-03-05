@@ -260,11 +260,11 @@ void executeFixpointAlgorithm(Module const& M) {
                             llvm::Value* value = call->getArgOperand(arg.getArgNo());
                             if (value->getType()->isIntegerTy()) {
                                 if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(value)) {
-                                    nodes[callee_element].state.values[&arg] = { &arg, 1 , nullptr, c->getSExtValue() };
+                                    nodes[callee_element].state[&arg] = { &arg, 1 , nullptr, c->getSExtValue() };
                                 } else {
-                                    LinearEquality value_equality = state_new.values.at(value);
+                                    LinearEquality value_equality = state_new[value];
                                     LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
-                                    nodes[callee_element].state.values[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
+                                    nodes[callee_element].state[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
                                 }
                             }
                         }
