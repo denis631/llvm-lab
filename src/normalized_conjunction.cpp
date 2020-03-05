@@ -64,14 +64,18 @@ void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector
         auto& incoming_state = pred_values[i];
 
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
-            linearAssignment(&phi, 1, nullptr, c->getSExtValue());
-        } else {
-            if (incoming_state.values.count(&incoming_value) != 0) {
-                LinearEquality pred_value = incoming_state.values[&incoming_value];
-                linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
-            } else {
-                nonDeterminsticAssignment(&phi);
-            }
+            NormalizedConjunction acc = *this;
+            acc.linearAssignment(&phi, 1, nullptr, c->getSExtValue());
+            merge(Merge_op::UPPER_BOUND, acc);
+        } else if (incoming_state.values.count(&incoming_value) != 0) {
+            NormalizedConjunction acc = *this;
+            LinearEquality pred_value = incoming_state.values[&incoming_value];
+            acc.linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
+            merge(Merge_op::UPPER_BOUND, acc);
+//     } else {
+//          NormalizedConjunction acc = *this;
+//          acc.nonDeterminsticAssignment(&phi);
+//          merge(Merge_op::UPPER_BOUND, acc);
         }
         i++;
     }
