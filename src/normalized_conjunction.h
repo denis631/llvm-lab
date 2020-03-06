@@ -45,6 +45,8 @@ public:
     bool merge(Merge_op::Type op, NormalizedConjunction const& other);
     void branch(llvm::BasicBlock const& from, llvm::BasicBlock const& towards) { return; };
     bool leastUpperBound(NormalizedConjunction rhs);
+
+    bool checkOperandsForBottom(llvm::Instruction const& inst) { return false; }
     
     void printIncoming(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;

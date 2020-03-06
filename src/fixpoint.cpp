@@ -347,11 +347,10 @@ void executeFixpointAlgorithm(Module const& M) {
 bool AbstractInterpretationPass::runOnModule(llvm::Module& M) {
     using AbstractState = AbstractStateValueSet<SimpleInterval>;
 
-    // Use either the standard fixpoint algorithm or the version with widening
-     executeFixpointAlgorithm<AbstractState>(M);
+//     Use either the standard fixpoint algorithm or the version with widening
+//    executeFixpointAlgorithm<AbstractState>(M);
+     executeFixpointAlgorithm<NormalizedConjunction>(M);
 //    executeFixpointAlgorithmWidening<AbstractState>(M);
-
-//    executeFixpointAlgorithmTwoVarEq<NormalizedConjunction>(M);
 
     // We never change anything
     return false;
