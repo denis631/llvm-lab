@@ -1,0 +1,3 @@
+command regex dump 's/(.+)/expression -O -l c++ -- ((llvm::Value*) %1 )->dump()/'
+command alias d dump
+command script import ${CMAKE_SOURCE_DIR}/lldb/ValueFormatter.py

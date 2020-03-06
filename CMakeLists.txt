@@ -254,3 +254,5 @@ foreach(src ${SAMPLES})
 endforeach(src)
 
 endif()
+
+configure_file(.lldbinit.in .lldbinit)
