@@ -105,9 +105,9 @@ vector<Node<AbstractState>*> register_function(llvm::Function const* function, C
         dbgs(1) << "  Found basic block: " << basic_block->getName() << '\n';
         NodeKey key = {new_callstring, basic_block};
         Node<AbstractState> node = {basic_block, new_callstring};
-//        if (node.isEntry()) {
-//            node.state = AbstractState {*node.function()};
-//        }
+        if (node.isEntry()) {
+            node.state = AbstractState {*node.function()};
+        }
         inserted_nodes.push_back(&nodes[key]);
         nodes[key] = node;
     }
@@ -226,7 +226,7 @@ void executeFixpointAlgorithm(Module const& M) {
 
                     // Checks if an input parameter for the callee is bottom. If so,
                     // then skip the calculation of the call instruction for now
-//                    if (state_new.checkOperandsForBottom(inst)) continue;
+                    if (state_new.checkOperandsForBottom(inst)) continue;
 
                     Function const* callee_func = call->getCalledFunction();
 
@@ -300,7 +300,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         }
                     }
                 } else {
-//                    if (state_new.checkOperandsForBottom(inst)) continue;
+                    if (state_new.checkOperandsForBottom(inst)) continue;
                     state_new.applyDefault(inst);
                 }
             }
@@ -348,10 +348,10 @@ bool AbstractInterpretationPass::runOnModule(llvm::Module& M) {
     using AbstractState = AbstractStateValueSet<SimpleInterval>;
 
     // Use either the standard fixpoint algorithm or the version with widening
-//     executeFixpointAlgorithm<AbstractState>(M);
+     executeFixpointAlgorithm<AbstractState>(M);
 //    executeFixpointAlgorithmWidening<AbstractState>(M);
 
-    executeFixpointAlgorithm<NormalizedConjunction>(M);
+//    executeFixpointAlgorithmTwoVarEq<NormalizedConjunction>(M);
 
     // We never change anything
     return false;
