@@ -266,21 +266,8 @@ void executeFixpointAlgorithm(Module const& M) {
                             callee_basic_blocks.push_back(&nodes[key]);
                         }
 
-                        for (llvm::Argument const& arg: callee_func->args()) {
-                            llvm::Value* value = call->getArgOperand(arg.getArgNo());
-                            if (value->getType()->isIntegerTy()) {
-                                if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(value)) {
-                                    nodes[callee_element].state[&arg] = { &arg, 1 , nullptr, c->getSExtValue() };
-                                } else {
-                                    LinearEquality value_equality = state_new[value];
-                                    LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
-                                    nodes[callee_element].state[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
-                                }
-                            }
-                        }
-                        nodes[callee_element].state.isBottom = false;
-                        //FIXME: somethingn is wrong here! This doesnt allways change ! check changed!!!
-                        changed = before.values != nodes[callee_element].state.values;
+                        AbstractState state_update{ callee_func, state_new, call };
+                        changed = nodes[callee_element].state.merge(merge_op, state_update);
                     }
 
                     //Getting the last block

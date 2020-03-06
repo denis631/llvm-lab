@@ -30,10 +30,12 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
         if (value->getType()->isIntegerTy()) {
             if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(value)) {
                 get(&arg) = { &arg, 1 , nullptr, c->getSExtValue() };
-            } else {
+            } else if (state.values.count(value) > 0) {
                 LinearEquality value_equality = state.values.at(value);
                 LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
                 get(&arg) = { &arg, value_equality.a , value_equality.x, value_equality.b };
+            } else {
+                get(&arg) = { &arg, 1 , value, 0 };
             }
             validVariables.insert(&arg);
         }
