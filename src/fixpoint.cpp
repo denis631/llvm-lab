@@ -255,7 +255,7 @@ void executeFixpointAlgorithm(Module const& M) {
                         changed = true;
                     } else {
                         //update callee
-                        NormalizedConjunction before = nodes[callee_element].state;
+                        AbstractState before = nodes[callee_element].state;
 
                         // Collect all basic blocks of callee_func
                         for (po_iterator<BasicBlock const*> I = po_begin(&callee_func->getEntryBlock()),
