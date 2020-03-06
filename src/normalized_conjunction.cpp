@@ -96,7 +96,8 @@ void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::B
             dbgs(4) << "\t\tFound return instruction\n";
             if (callee_state.values.find(ret_val) != callee_state.values.end()) {
                 dbgs(4) << "\t\tReturn evaluated, merging parameters\n";
-                values[&inst] = callee_state.values.at(ret_val);
+                LinearEquality retEq = callee_state.values.at(ret_val);
+                values[&inst] = {&inst, retEq.a, retEq.x, retEq.b};
                 validVariables.insert(&inst);
             } else {
                 dbgs(4) << "\t\tReturn not evaluated, setting to bottom\n";
@@ -112,7 +113,8 @@ void NormalizedConjunction::applyReturnInst(llvm::Instruction const& inst) {
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(ret_val)) {
             values[&inst] = LinearEquality(c);
         } else if (values.find(ret_val) != values.end()) {
-            values[&inst] = values.at(ret_val);
+            LinearEquality eq = values.at(ret_val);
+            values[&inst] = {&inst, eq.a, eq.x, eq.b};
         }
     }
     validVariables.insert(&inst);
