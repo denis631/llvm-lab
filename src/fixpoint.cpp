@@ -256,6 +256,16 @@ void executeFixpointAlgorithm(Module const& M) {
                     } else {
                         //update callee
                         NormalizedConjunction before = nodes[callee_element].state;
+
+                        // Collect all basic blocks of callee_func
+                        for (po_iterator<BasicBlock const*> I = po_begin(&callee_func->getEntryBlock()),
+                             IE = po_end(&callee_func->getEntryBlock());
+                             I != IE; ++I) {
+                            BasicBlock const* basic_block = *I;
+                            NodeKey key = {new_callstring, basic_block};
+                            callee_basic_blocks.push_back(&nodes[key]);
+                        }
+
                         for (llvm::Argument const& arg: callee_func->args()) {
                             llvm::Value* value = call->getArgOperand(arg.getArgNo());
                             if (value->getType()->isIntegerTy()) {
@@ -269,6 +279,7 @@ void executeFixpointAlgorithm(Module const& M) {
                             }
                         }
                         nodes[callee_element].state.isBottom = false;
+                        //FIXME: somethingn is wrong here! This doesnt allways change ! check changed!!!
                         changed = before.values != nodes[callee_element].state.values;
                     }
 
