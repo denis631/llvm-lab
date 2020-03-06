@@ -74,10 +74,10 @@ void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector
             LinearEquality pred_value = incoming_state[&incoming_value];
             acc.linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
             merge(Merge_op::UPPER_BOUND, acc);
-//     } else {
-//          NormalizedConjunction acc = *this;
-//          acc.nonDeterminsticAssignment(&phi);
-//          merge(Merge_op::UPPER_BOUND, acc);
+     } else {
+          NormalizedConjunction acc = *this;
+          acc.nonDeterminsticAssignment(&phi);
+          merge(Merge_op::UPPER_BOUND, acc);
         }
         i++;
     }
