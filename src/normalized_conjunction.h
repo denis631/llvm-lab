@@ -55,6 +55,7 @@ public:
 
     // Operators
     LinearEquality& operator[](llvm::Value const*);
+    LinearEquality& get(llvm::Value const*);
     
 protected:
     // Abstract Operators

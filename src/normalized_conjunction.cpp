@@ -17,7 +17,7 @@ namespace pcpo {
 
 NormalizedConjunction::NormalizedConjunction(llvm::Function const& f) {
     for (llvm::Argument const& arg: f.args()) {
-        values[&arg] = LinearEquality(&arg);
+        get(&arg) = LinearEquality(&arg);
         validVariables.insert(&arg);
     }
     isBottom = f.arg_empty();
@@ -29,11 +29,11 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
         llvm::Value* value = call->getArgOperand(arg.getArgNo());
         if (value->getType()->isIntegerTy()) {
             if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(value)) {
-                values[&arg] = { &arg, 1 , nullptr, c->getSExtValue() };
+                get(&arg) = { &arg, 1 , nullptr, c->getSExtValue() };
             } else {
                 LinearEquality value_equality = state.values.at(value);
                 LinearEquality eq = { &arg, value_equality.a , value_equality.x, value_equality.b };
-                values[&arg] = { &arg, value_equality.a , value_equality.x, value_equality.b };
+                get(&arg) = { &arg, value_equality.a , value_equality.x, value_equality.b };
             }
             validVariables.insert(&arg);
         }
@@ -69,7 +69,7 @@ void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector
             merge(Merge_op::UPPER_BOUND, acc);
         } else if (incoming_state.values.count(&incoming_value) != 0) {
             NormalizedConjunction acc = *this;
-            LinearEquality pred_value = incoming_state.values[&incoming_value];
+            LinearEquality pred_value = incoming_state[&incoming_value];
             acc.linearAssignment(&phi, pred_value.a, pred_value.x, pred_value.b);
             merge(Merge_op::UPPER_BOUND, acc);
 //     } else {
@@ -97,7 +97,7 @@ void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::B
             if (callee_state.values.find(ret_val) != callee_state.values.end()) {
                 dbgs(4) << "\t\tReturn evaluated, merging parameters\n";
                 LinearEquality retEq = callee_state.values.at(ret_val);
-                values[&inst] = {&inst, retEq.a, retEq.x, retEq.b};
+                get(&inst) = {&inst, retEq.a, retEq.x, retEq.b};
                 validVariables.insert(&inst);
             } else {
                 dbgs(4) << "\t\tReturn not evaluated, setting to bottom\n";
@@ -111,10 +111,10 @@ void NormalizedConjunction::applyReturnInst(llvm::Instruction const& inst) {
     llvm::Value const* ret_val = llvm::dyn_cast<llvm::ReturnInst>(&inst)->getReturnValue();
     if (ret_val && ret_val->getType()->isIntegerTy()) {
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(ret_val)) {
-            values[&inst] = LinearEquality(c);
+            get(&inst) = LinearEquality(c);
         } else if (values.find(ret_val) != values.end()) {
             LinearEquality eq = values.at(ret_val);
-            values[&inst] = {&inst, eq.a, eq.x, eq.b};
+            get(&inst) = {&inst, eq.a, eq.x, eq.b};
         }
     }
     validVariables.insert(&inst);
@@ -198,7 +198,7 @@ bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
             LinearEquality eq = {d, 1, d, 0};
             E1.insert(eq);
         } else {
-            E1.insert(rhs.values[d]);
+            E1.insert(rhs[d]);
         }
     }
     
@@ -208,7 +208,7 @@ bool NormalizedConjunction::leastUpperBound(NormalizedConjunction rhs) {
             LinearEquality eq = {d, 1, d, 0};
             E2.insert(eq);
         } else {
-            E2.insert(values[d]);
+            E2.insert(operator[](d));
         }
     }
     
@@ -410,11 +410,11 @@ std::set<LinearEquality> NormalizedConjunction::computeX4(std::set<LinearEqualit
 /// [xi := ?]
 void NormalizedConjunction::nonDeterminsticAssignment(Value const* xi) {
     assert(xi != nullptr && "xi cannot be NULL");
-    auto xj = values[xi].x;
+    auto xj = get(xi).x;
     validVariables.insert(xi);
     
     if (xi != xj && xj != 0) {
-        values[xi] = {xi, 1, xi, 0};
+        get(xi) = {xi, 1, xi, 0};
     } else {
         // find all equations using xi
         auto predicate = [&xi](std::pair<Value const*, LinearEquality> p){ return p.second.x == xi && p.second.y != xi ;};
@@ -425,11 +425,11 @@ void NormalizedConjunction::nonDeterminsticAssignment(Value const* xi) {
                  it != values.end();
                  it = std::find_if(++it, values.end(), predicate)) {
                 auto& xl = it->second;
-                values[xl.y] = {xl.y, 1, xk.y, xl.b - xk.b};
+                get(xl.y) = {xl.y, 1, xk.y, xl.b - xk.b};
             }
-            values[xk.y] = {xk.y, 1, xk.y, 0};
+            get(xk.y) = {xk.y, 1, xk.y, 0};
         }
-        values[xi] = {xi, 1, xi, 0};
+        get(xi) = {xi, 1, xi, 0};
     }
 
 }
@@ -442,9 +442,9 @@ void NormalizedConjunction::linearAssignment(Value const* xi, int64_t a, Value c
     validVariables.insert(xi);
 
     // make sure xj exists
-    auto xjS = values.find(xj) != values.end() ? values[xj].x : nullptr;
-    auto bS = values.find(xj) != values.end() ? values[xj].b : 0;
-    auto aS = values.find(xj) != values.end() ? values[xj].a : 1;
+    auto xjS = values.find(xj) != values.end() ? get(xj).x : nullptr;
+    auto bS = values.find(xj) != values.end() ? get(xj).b : 0;
+    auto aS = values.find(xj) != values.end() ? get(xj).a : 1;
     
     if (!(a % aS == 0 && (-bS - b) % aS == 0)) {
         // Precison loss due to int division! Abort
@@ -452,14 +452,14 @@ void NormalizedConjunction::linearAssignment(Value const* xi, int64_t a, Value c
     }
     
     if (xi > xjS) {
-        values[xi] = {xi, aS * a, xjS, a * bS + b};
+        get(xi) = {xi, aS * a, xjS, a * bS + b};
         return;
     } else {
         auto pred = [&xjS](std::pair<Value const*, LinearEquality> p){ return p.second.x == xjS && p.second.y != xjS; };
         for (auto xk: make_filter_range(values, pred)) {
-            values[xk.second.y] = {xk.second.y, xk.second.a * a/aS, xi, (-bS - b) / aS + xk.second.b};
+            get(xk.second.y) = {xk.second.y, xk.second.a * a/aS, xi, (-bS - b) / aS + xk.second.b};
         }
-        values[xjS] = {xjS, a/aS, xi, (-bS - b) / aS};
+        get(xjS) = {xjS, a/aS, xi, (-bS - b) / aS};
     }
 }
 
@@ -488,11 +488,11 @@ void NormalizedConjunction::Add(Instruction const& inst) {
     // [xi := xj + xk]
     } else if (isa<Value>(op1) && isa<Value>(op2)) {
         // [xi := bj + xk]
-        if (values[op1].isConstant()) {
-            return linearAssignment(&inst, 1, op2, values[op1].b);
+        if (get(op1).isConstant()) {
+            return linearAssignment(&inst, 1, op2, get(op1).b);
         // [xi := xj + bk]
-        } else if (values[op2].isConstant()) {
-            return linearAssignment(&inst, 1, op1, values[op2].b);
+        } else if (get(op2).isConstant()) {
+            return linearAssignment(&inst, 1, op1, get(op2).b);
         // [xi := xj + xk]
         } else {
             return nonDeterminsticAssignment(&inst);
@@ -525,11 +525,11 @@ void NormalizedConjunction::Sub(Instruction const& inst) {
    // [xi := xj - xk]
    } else if (isa<Value>(op1) && isa<Value>(op2)) {
        // [xi := bj - xk]
-       if (values[op1].isConstant()) {
-           return linearAssignment(&inst, 1, op2, -values[op1].b);
+       if (get(op1).isConstant()) {
+           return linearAssignment(&inst, 1, op2, -get(op1).b);
        // [xi := xj - bk]
-       } else if (values[op2].isConstant()) {
-           return linearAssignment(&inst, 1, op1, -values[op2].b);
+       } else if (get(op2).isConstant()) {
+           return linearAssignment(&inst, 1, op1, -get(op2).b);
        // [xi := xj - xk]
        } else {
            return nonDeterminsticAssignment(&inst);
@@ -561,11 +561,11 @@ void NormalizedConjunction::Mul(Instruction const& inst) {
     // [xi := xj * xk]
     } else if (isa<Value>(op1) && isa<Value>(op2)) {
         // [xi := aj * xk]
-        if (values[op1].isConstant()) {
-            return linearAssignment(&inst, values[op1].b, op2, 0);
+        if (get(op1).isConstant()) {
+            return linearAssignment(&inst, get(op1).b, op2, 0);
         // [xi := xj * ak]
-        } else if (values[op2].isConstant()) {
-            return linearAssignment(&inst, values[op1].b, op1, 0);
+        } else if (get(op2).isConstant()) {
+            return linearAssignment(&inst, get(op1).b, op1, 0);
         // [xi := xj * xk]
         } else {
             return nonDeterminsticAssignment(&inst);
@@ -579,6 +579,10 @@ void NormalizedConjunction::Mul(Instruction const& inst) {
 // MARK: - Operators
 
 LinearEquality& NormalizedConjunction::operator[](Value const* value) {
+    return get(value);
+}
+
+LinearEquality& NormalizedConjunction::get(Value const* value) {
     if (values.count(value) == 0) {
         LinearEquality eq = {value, 1, value, 0};
         values[value] = eq;
