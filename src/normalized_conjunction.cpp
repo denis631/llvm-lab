@@ -442,7 +442,7 @@ void NormalizedConjunction::linearAssignment(Value const* xi, int64_t a, Value c
     validVariables.insert(xi);
 
     // make sure xj exists
-    auto xjS = values.find(xj) != values.end() ? get(xj).x : nullptr;
+    auto xjS = values.find(xj) != values.end() ? get(xj).x : xj;
     auto bS = values.find(xj) != values.end() ? get(xj).b : 0;
     auto aS = values.find(xj) != values.end() ? get(xj).a : 1;
     
