@@ -13,7 +13,6 @@
 #include "normalized_conjunction.h"
 
 #include "fixpoint_widening.cpp"
-#include "fixpoint_two_var_eq.cpp"
 #include "hash_utils.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
