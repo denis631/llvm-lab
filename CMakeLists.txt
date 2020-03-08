@@ -215,12 +215,27 @@ set(SAMPLES
   while-neg
 )
 
-list(TRANSFORM SAMPLES APPEND ".c" OUTPUT_VARIABLE SAMPLES_C)
-list(TRANSFORM SAMPLES APPEND ".bc" OUTPUT_VARIABLE SAMPLES_BC)
-list(TRANSFORM SAMPLES APPEND ".ll" OUTPUT_VARIABLE SAMPLES_LL)
-list(TRANSFORM SAMPLES_LL PREPEND "${CMAKE_SOURCE_DIR}/output/")
-list(TRANSFORM SAMPLES_BC PREPEND "${CMAKE_SOURCE_DIR}/output/")
-list(TRANSFORM SAMPLES_C PREPEND "${CMAKE_SOURCE_DIR}/samples/")
+# Older CMake version do not support list transformations
+macro(list_transform_prepend in prefix)
+    foreach(f ${${in}})
+        list(APPEND temp "${prefix}${f}")
+    endforeach()
+    set(${in} "${temp}")
+    unset(temp)
+endmacro()
+
+macro(list_transform_append in suffix out)
+    foreach(f ${${in}})
+        list(APPEND ${out} "${f}${suffix}")
+    endforeach()
+endmacro()
+
+list_transform_append(SAMPLES ".c" SAMPLES_C)
+list_transform_append(SAMPLES ".bc" SAMPLES_BC)
+list_transform_append(SAMPLES ".ll" SAMPLES_LL)
+list_transform_prepend(SAMPLES_LL "${CMAKE_SOURCE_DIR}/output/")
+list_transform_prepend(SAMPLES_BC "${CMAKE_SOURCE_DIR}/output/")
+list_transform_prepend(SAMOLES_C "${CMAKE_SOURCE_DIR}/samples/")
 
 add_custom_target(irgen
   DEPENDS ${SAMPLES_LL} ${SAMPLES_BC}
