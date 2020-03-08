@@ -101,7 +101,6 @@ endif()
 set(PAIN_SOURCES
   src/fixpoint.cpp
   src/fixpoint_widening.cpp
-  src/fixpoint_two_var_eq.cpp
   src/value_set.cpp
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
