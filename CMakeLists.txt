@@ -117,6 +117,7 @@ set(PAIN_HEADERS
   src/global.h
   src/abstract_state.h
   src/hash_utils.h
+  src/matrix.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
@@ -157,6 +158,16 @@ target_link_libraries(normalized_conjunction_test
    ${LLVM_AVAILABLE_LIBS}
 )
 
+add_llvm_executable(matrix_test
+   test/matrix_test.cpp
+   ${PAIN_HEADERS}
+   ${PAIN_SOURCES}
+)
+
+target_link_libraries(matrix_test
+   ${LLVM_AVAILABLE_LIBS}
+)
+
 enable_testing()
 
 add_test(NAME intervalAnalysisTest
@@ -169,6 +180,10 @@ add_test(NAME simpleIntervalTest
 
 add_test(NAME normalizedConjunctionTest
    COMMAND normalized_conjunction_test
+)
+
+add_test(NAME matrixTest
+   COMMAND matrix_test
 )
 
 set(SAMPLES
