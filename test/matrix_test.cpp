@@ -20,6 +20,10 @@ public:
     static bool runTestEchelon1();
     static bool runTestEchelon2();
     static bool runTestEchelon3();
+    static bool runTestRank1();
+    static bool runTestRank2();
+    static bool runTestRank3();
+    static bool runTestSpan1();
 };
 
 template <typename T>
@@ -224,6 +228,98 @@ bool MatrixTest<T>::runTestEchelon3() {
     return result;
 }
 
+template<typename T>
+bool MatrixTest<T>::runTestRank1() {
+    std::cout << "Testing rank 1: ";
+    bool result = false;
+
+    std::vector<std::vector<T>> a = {
+        {1,4,7},
+        {2,5,8},
+        {3,6,9}
+    };
+
+    int expected = 2;
+
+    auto matrix = Matrix(a);
+    auto actual = matrix.getRank();
+
+    result = actual == expected;
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestRank2() {
+    std::cout << "Testing rank 2: ";
+    bool result = false;
+
+    std::vector<std::vector<T>> a = {
+        {1,2,4},
+        {2,4,8},
+        {4,8,16}
+    };
+
+    int expected = 1;
+
+    auto matrix = Matrix(a);
+    auto actual = matrix.getRank();
+
+    result = actual == expected;
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestRank3() {
+    std::cout << "Testing rank 3: ";
+    bool result = false;
+
+    std::vector<std::vector<T>> a = {
+        {1,2,1},
+        {1,4,8},
+        {1,6,3}
+    };
+
+    int expected = 3;
+
+    auto matrix = Matrix(a);
+    auto actual = matrix.getRank();
+
+    result = actual == expected;
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestSpan1() {
+    std::cout << "Testing span 1: ";
+    bool result = false;
+
+    std::vector<std::vector<T>> a = {
+        {1,1,4},
+        {0,1,4},
+        {1,0,0}
+    };
+
+    std::vector<std::vector<T>> expected = {
+        {1,1},
+        {0,1},
+        {1,0}
+    };
+
+    auto matrix = Matrix(a);
+    auto actual = matrix.span();
+
+    result = actual == Matrix(expected);
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
 
 int main() {
     return !(MatrixTest<int>::runTestMul1()
@@ -233,6 +329,10 @@ int main() {
              && MatrixTest<int>::runTestEchelon1()
              && MatrixTest<int>::runTestEchelon2()
              && MatrixTest<int>::runTestEchelon3()
+             && MatrixTest<int>::runTestRank1()
+             && MatrixTest<int>::runTestRank2()
+             && MatrixTest<int>::runTestRank3()
+             && MatrixTest<int>::runTestSpan1()
     );
 };
 

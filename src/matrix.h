@@ -105,15 +105,38 @@ public:
         return result;
     };
 
+    /// The rank of the matrix
+    int getRank() const {
+        Matrix e = echelon();
+        int rank = 0;
+        for (int row = 0; row < height; row++) {
+            for (int column = 0; column < width; column++) {
+                if ((e.vectors[row][column] == 0) && (column == width - 1)) {
+                    return rank;
+                } else if (e.vectors[row][column] != 0) {
+                    break;
+                }
+            }
+            rank++;
+        }
+        return rank;
+    }
 
     /// Linear span of the matrix ... fixme
-    Matrix span() const;
+    Matrix span() const {
+        vector<vector<T>> columns;
+        int rank = getRank();
+        for (int col = 0; col<rank; col++) {
+            columns.push_back(column(col));
+        }
+        return Matrix(columns).transpose();
+    }
 
-    /// Returns a vector with the elements of the row at index i. The returned row cannot be modified.
+    /// Returns a vector with the elements of the row at index i. The returned row can be modified.
     /// @param i Index of the row to return.
     vector<T>& row(int i) { return vectors[i]; };
 
-    /// Returns the column at index i. The returned column can be modified.
+    /// Returns the column at index i. The returned column cannot be modified.
     /// @param i Index of the column to return
     vector<T> column(int i) const {
         vector<T> row;
