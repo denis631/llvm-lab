@@ -105,6 +105,7 @@ set(PAIN_SOURCES
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
   src/linear_equality.cpp
+  src/affine_relation.cpp
 )
 
 set(PAIN_HEADERS
@@ -117,6 +118,7 @@ set(PAIN_HEADERS
   src/global.h
   src/abstract_state.h
   src/hash_utils.h
+  src/affine_relation.h
   src/matrix.h
 )
 
