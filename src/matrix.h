@@ -31,6 +31,7 @@ public:
     /// @param height Height of the matrix
     Matrix<T>(int height, int width) : Matrix<T>(height, width, 0) {};
 
+    Matrix<T>() = default;
     Matrix(Matrix const& matrix) = default;
 
     /// Creates an identity matrix with dimension eye x eye
