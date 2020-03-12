@@ -15,20 +15,20 @@ namespace pcpo {
 
 // MARK: - Initializers
 
-NormalizedConjunction::NormalizedConjunction(llvm::Function const& f) {
-    for (llvm::Argument const& arg: f.args()) {
+NormalizedConjunction::NormalizedConjunction(Function const& f) {
+    for (Argument const& arg: f.args()) {
         get(&arg) = LinearEquality(&arg);
         validVariables.insert(&arg);
     }
     isBottom = f.arg_empty();
 }
 
-NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, NormalizedConjunction const& state, llvm::CallInst const* call) {
+NormalizedConjunction::NormalizedConjunction(Function const* callee_func, NormalizedConjunction const& state, CallInst const* call) {
     assert(callee_func->arg_size() == call->getNumArgOperands());
-    for (llvm::Argument const& arg: callee_func->args()) {
-        llvm::Value* value = call->getArgOperand(arg.getArgNo());
+    for (Argument const& arg: callee_func->args()) {
+        Value* value = call->getArgOperand(arg.getArgNo());
         if (value->getType()->isIntegerTy()) {
-            if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(value)) {
+            if (ConstantInt const* c = dyn_cast<ConstantInt>(value)) {
                 get(&arg) = { &arg, 1 , nullptr, c->getSExtValue() };
             } else if (state.values.count(value) > 0) {
                 LinearEquality value_equality = state.values.at(value);
@@ -43,7 +43,7 @@ NormalizedConjunction::NormalizedConjunction(llvm::Function const* callee_func, 
     isBottom = false;
 }
 
-NormalizedConjunction::NormalizedConjunction(std::unordered_map<llvm::Value const*, LinearEquality> equalaties) {
+NormalizedConjunction::NormalizedConjunction(std::unordered_map<Value const*, LinearEquality> equalaties) {
     this->values = equalaties;
     isBottom = equalaties.empty();
     for (auto& [key, value]: equalaties) {
@@ -55,9 +55,9 @@ NormalizedConjunction::NormalizedConjunction(std::unordered_map<llvm::Value cons
 // MARK: - AbstractState Interface
 
 /// Handles the evaluation of merging points
-void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values,
-                  llvm::Instruction const& phi) {
-    llvm::PHINode const* phiNode = llvm::dyn_cast<llvm::PHINode>(&phi);
+void NormalizedConjunction::applyPHINode(BasicBlock const& bb, std::vector<NormalizedConjunction> pred_values,
+                  Instruction const& phi) {
+    PHINode const* phiNode = dyn_cast<PHINode>(&phi);
 
     int i = 0;
 
@@ -65,7 +65,7 @@ void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector
         auto& incoming_value = *phiNode->getIncomingValueForBlock(pred_bb);
         auto& incoming_state = pred_values[i];
 
-        if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
+        if (ConstantInt const* c = dyn_cast<ConstantInt>(&incoming_value)) {
             NormalizedConjunction acc = *this;
             acc.linearAssignment(&phi, 1, nullptr, c->getSExtValue());
             merge(Merge_op::UPPER_BOUND, acc);
@@ -83,7 +83,7 @@ void NormalizedConjunction::applyPHINode(llvm::BasicBlock const& bb, std::vector
     }
 }
 
-void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block, NormalizedConjunction const& callee_state) {
+void NormalizedConjunction::applyCallInst(Instruction const& inst, BasicBlock const* end_block, NormalizedConjunction const& callee_state) {
     std::vector<LinearEquality> operands;
 
 //    // Keep the debug output happy
@@ -93,8 +93,8 @@ void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::B
     
     //iterate through all instructions of it till we find a return statement
     for (auto& iter_inst: *end_block) {
-        if (llvm::ReturnInst const* ret_inst = llvm::dyn_cast<llvm::ReturnInst>(&iter_inst)) {
-            llvm::Value const* ret_val = ret_inst->getReturnValue();
+        if (ReturnInst const* ret_inst = dyn_cast<ReturnInst>(&iter_inst)) {
+            Value const* ret_val = ret_inst->getReturnValue();
             dbgs(4) << "\t\tFound return instruction\n";
             if (callee_state.values.find(ret_val) != callee_state.values.end()) {
                 dbgs(4) << "\t\tReturn evaluated, merging parameters\n";
@@ -109,10 +109,10 @@ void NormalizedConjunction::applyCallInst(llvm::Instruction const& inst, llvm::B
 //    debug_output(inst, operands);
 }
 
-void NormalizedConjunction::applyReturnInst(llvm::Instruction const& inst) {
-    llvm::Value const* ret_val = llvm::dyn_cast<llvm::ReturnInst>(&inst)->getReturnValue();
+void NormalizedConjunction::applyReturnInst(Instruction const& inst) {
+    Value const* ret_val = dyn_cast<ReturnInst>(&inst)->getReturnValue();
     if (ret_val && ret_val->getType()->isIntegerTy()) {
-        if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(ret_val)) {
+        if (ConstantInt const* c = dyn_cast<ConstantInt>(ret_val)) {
             get(&inst) = LinearEquality(c);
         } else if (values.find(ret_val) != values.end()) {
             LinearEquality eq = values.at(ret_val);
@@ -122,7 +122,7 @@ void NormalizedConjunction::applyReturnInst(llvm::Instruction const& inst) {
     validVariables.insert(&inst);
 }
 
-void NormalizedConjunction::applyDefault(llvm::Instruction const& inst) {
+void NormalizedConjunction::applyDefault(Instruction const& inst) {
     std::vector<LinearEquality> operands;
     
     if (inst.getNumOperands() != 2) return nonDeterminsticAssignment(&inst);
@@ -137,7 +137,7 @@ void NormalizedConjunction::applyDefault(llvm::Instruction const& inst) {
     type = dyn_cast<IntegerType>(inst.getOperand(1)->getType());
     if (not type) return nonDeterminsticAssignment(&inst);
     
-    for (llvm::Value const* value: inst.operand_values()) {
+    for (Value const* value: inst.operand_values()) {
         operands.push_back(LinearEquality(value));
     }
     
@@ -594,10 +594,10 @@ LinearEquality& NormalizedConjunction::get(Value const* value) {
 
 // MARK: - Debug
 
-void NormalizedConjunction::debug_output(llvm::Instruction const& inst, std::vector<LinearEquality> operands) {
+void NormalizedConjunction::debug_output(Instruction const& inst, std::vector<LinearEquality> operands) {
     dbgs(3).indent(2) << inst << " // " << values.at(&inst) << ", args ";
     {int i = 0;
-    for (llvm::Value const* value: inst.operand_values()) {
+    for (Value const* value: inst.operand_values()) {
         if (i) dbgs(3) << ", ";
         if (value->getName().size()) dbgs(3) << '%' << value->getName() << " = ";
         dbgs(3) << operands[i];
@@ -606,15 +606,15 @@ void NormalizedConjunction::debug_output(llvm::Instruction const& inst, std::vec
     dbgs(3) << '\n';
 }
 
-void NormalizedConjunction::printIncoming(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {
+void NormalizedConjunction::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation = 0) const {
     // @Speed: This is quadratic, could be linear
     bool nothing = true;
-    for (std::pair<llvm::Value const*, LinearEquality> const& i: values) {
+    for (std::pair<Value const*, LinearEquality> const& i: values) {
         bool read    = false;
         bool written = false;
-        for (llvm::Instruction const& inst: bb) {
+        for (Instruction const& inst: bb) {
             if (&inst == i.first) written = true;
-            for (llvm::Value const* v: inst.operand_values()) {
+            for (Value const* v: inst.operand_values()) {
                 if (v == i.first) read = true;
             }
         }
@@ -629,9 +629,9 @@ void NormalizedConjunction::printIncoming(llvm::BasicBlock const& bb, llvm::raw_
     }
 }
 
-void NormalizedConjunction::printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {
+void NormalizedConjunction::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation = 0) const {
     for (auto const& i: values) {
-        if (llvm::ReturnInst::classof(i.first)) {
+        if (ReturnInst::classof(i.first)) {
             out.indent(indentation) << "<ret> = " << i.second << '\n';
         } else {
             out.indent(indentation) << '%' << i.first->getName() << " = " << i.second << '\n';
