@@ -342,5 +342,17 @@ inline Matrix<T> operator-(Matrix<T> lhs, Matrix<T> const& rhs) { return  lhs -=
 template <typename T>
 inline Matrix<T> operator-(Matrix<T> lhs, T scalar) { return lhs -= scalar; };
 
+template <typename T>
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> matrix) {
+    for (int row = 0; row < matrix.getHeight(); row++) {
+        os << "[\t";
+        for (int column = 0; column < matrix.getWidth(); column++) {
+            os << matrix(row,column) << "   \t";
+        }
+        os << "]\n";
+    }
+    return os;
+};
+
 }
 
