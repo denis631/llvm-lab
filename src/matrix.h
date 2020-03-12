@@ -126,11 +126,11 @@ public:
     }
 
     /// Linear span of the matrix ... fixme
-    Matrix span() const {
+    static Matrix<T> span(Matrix<T> matrix) {
         vector<vector<T>> columns;
-        int rank = getRank();
+        int rank = matrix.getRank();
         for (int col = 0; col<rank; col++) {
-            columns.push_back(column(col));
+            columns.push_back(matrix.column(col));
         }
         return Matrix(columns).transpose();
     }
@@ -166,7 +166,7 @@ public:
     /// @param row
     /// @param column
     T& value(int row, int column) {
-        assert(row < getHeight() && column < getHeight());
+        assert(row < getHeight() && column < getWidth());
         return vectors[row][column];
     };
 
@@ -174,7 +174,7 @@ public:
     /// @param row
     /// @param column
     T const& value(int row, int column) const {
-        assert(row < getHeight() && column < getHeight());
+        assert(row < getHeight() && column < getWidth());
         return vectors[row][column];
     };
 

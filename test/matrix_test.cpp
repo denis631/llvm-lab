@@ -312,7 +312,8 @@ bool MatrixTest<T>::runTestSpan1() {
     };
 
     auto matrix = Matrix(a);
-    auto actual = matrix.span();
+    auto actual = Matrix<int>::span(matrix);
+
 
     result = actual == Matrix(expected);
 
