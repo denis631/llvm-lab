@@ -68,6 +68,8 @@ public:
     int getHeight() const { return height; };
     /// The width of the matrix (number of columns)
     int getWidth() const { return width; };
+    /// Returns true when the matrix is empty
+    bool empty() const { return getWidth() == 0 && getHeight() == 0; };
 
     // MARK: - Matrix operations
 
@@ -133,6 +135,32 @@ public:
         return Matrix(columns).transpose();
     }
 
+    /// Converts the matrix to a 1D Vector by stacking the column vectors
+    Matrix<T> toVector() const {
+        vector<T> result;
+        result.reserve(getWidth() * getHeight());
+        for (vector<T> vector: vectors) {
+            result.insert(result.end(), vector.begin(), vector.end());
+        }
+        return Matrix(result);
+    }
+
+    /// Converts a 1D Vector to a Matrix with given dimensions
+    /// @param rows number of rows
+    /// @param columns number of columns
+    Matrix<T> reshape(int rows, int columns) const {
+        assert(getWidth() == 1 && getHeight() == rows * columns);
+        vector<vector<T>> result;
+        result.reserve(rows);
+        for (int row = 0; row < rows; row++) {
+            vector<T> rowVector;
+            rowVector.reserve(columns);
+            for (int column = 0; column < columns; column++) {
+                rowVector.push_back(value(row,column));
+            }
+        }
+        return Matrix(result);
+    }
     /// Returns a vector with the elements of the row at index i. The returned row can be modified.
     /// @param i Index of the row to return.
     vector<T>& row(int i) { return vectors[i]; };
