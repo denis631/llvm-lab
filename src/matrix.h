@@ -78,7 +78,7 @@ public:
         Matrix result = Matrix(width, height);
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                result.vectors[j][i] = vectors[i][j];
+                result.value(j,i) = value(i,j);
             }
         }
         return result;
@@ -91,17 +91,17 @@ public:
         for (int row = 0; row < height; row++) {
             if (pivot >= width) { return result; }
             int i = row;
-            while (result.vectors[i][pivot] == 0) {
+            while (result.value(i,pivot) == 0) {
                 if (++i >= height) {
                     i = row;
                     if (++pivot >= width) { return result; }
                 }
             }
             result.swap_rows(i, row);
-            result.divide_row(row, result.vectors[row][pivot]);
+            result.divide_row(row, result.value(row,pivot));
             for (i = 0; i < height; i++) {
                 if (i != row) {
-                    result.add_multiple_row(i, row, -result.vectors[i][pivot]);
+                    result.add_multiple_row(i, row, -result.value(i,pivot));
                 }
             }
         }
@@ -114,9 +114,9 @@ public:
         int rank = 0;
         for (int row = 0; row < height; row++) {
             for (int column = 0; column < width; column++) {
-                if ((e.vectors[row][column] == 0) && (column == width - 1)) {
+                if ((e.value(row,column) == 0) && (column == width - 1)) {
                     return rank;
-                } else if (e.vectors[row][column] != 0) {
+                } else if (e.value(row,column) != 0) {
                     break;
                 }
             }
@@ -161,13 +161,35 @@ public:
         }
         return Matrix(result);
     }
+
+    /// Returns the value at row i and column j
+    /// @param row
+    /// @param column
+    T& value(int row, int column) {
+        assert(row < getHeight() && column < getHeight());
+        return vectors[row][column];
+    };
+
+    /// Returns the value at row i and column j
+    /// @param row
+    /// @param column
+    T const& value(int row, int column) const {
+        assert(row < getHeight() && column < getHeight());
+        return vectors[row][column];
+    };
+
+
     /// Returns a vector with the elements of the row at index i. The returned row can be modified.
     /// @param i Index of the row to return.
-    vector<T>& row(int i) { return vectors[i]; };
+    vector<T>& row(int i) {
+        assert(i < getHeight());
+        return vectors[i];
+    };
 
     /// Returns the column at index i. The returned column cannot be modified.
     /// @param i Index of the column to return
     vector<T> column(int i) const {
+        assert(i < getWidth());
         vector<T> row;
         row.reserve(width);
         for (vector<T> const& x : vectors) {
@@ -178,7 +200,7 @@ public:
 
     // MARK: - Operators
 
-    T& operator()(int i, int j) { return vectors[i][j]; };
+    T& operator()(int i, int j) { return value(i,j); };
 
     Matrix<T>& operator *=(Matrix<T> const& rhs) {
         assert(width == rhs.height);
@@ -186,7 +208,7 @@ public:
         for (int i = 0; i < height; i++) {
             for (int k = 0; k < width; k++) {
                 for (int j = 0; j < rhs.width; j++) {
-                    result.vectors[i][j] += vectors[i][k] * rhs.vectors[k][j];
+                    result.value(i,j) += value(i,k) * rhs.value(k,j);
                 }
             }
         }
@@ -199,7 +221,7 @@ public:
     Matrix<T>& operator *=(T scalar) {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                vectors[i][j] *= scalar;
+                value(i,j) *= scalar;
             }
         }
         return *this;
@@ -210,7 +232,7 @@ public:
         assert(rhs.width == width && rhs.height == height);
         for (int i=0;i<height;i++) {
             for (int j = 0; j < width; j++) {
-                vectors[i][j] += rhs.vectors[i][j];
+                value(i,j) += rhs.value(i,j);
             }
         }
         return *this;
@@ -219,7 +241,7 @@ public:
     Matrix<T>& operator +=(T scalar) {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                vectors[i][j] += scalar;
+                value(i,j) += scalar;
             }
         }
         return *this;
@@ -229,7 +251,7 @@ public:
         assert(rhs.width == width && rhs.height == height);
         for (int i = 0; i < height; i++) {
             for (int j= 0; j < width; j++) {
-                vectors[i][j] -= rhs.vectors[i][j];
+                value(i,j) -= rhs.value(i,j);
             }
         }
         return *this;
@@ -238,7 +260,7 @@ public:
     Matrix<T>& operator -=(int scalar) {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                vectors[i][j] -= scalar;
+                value(i,j) -= scalar;
             }
         }
         return *this;
@@ -265,7 +287,7 @@ protected:
     /// @param quotient quotient to divide the row by
     void divide_row(int row, int quotient) {
         for (int column = 0; column < width; column++) {
-            vectors[row][column] /= quotient;
+            value(row,column) /= quotient;
         }
     };
 
@@ -275,7 +297,7 @@ protected:
     /// @param factor Factor to multiply row b with when adding it to row a
     void add_multiple_row(int a, int b, int factor) {
         for (int column = 0; column < width; column++) {
-            vectors[a][column] += vectors[b][column] * factor;
+            value(a,column) += value(b,column) * factor;
         }
     };
 
