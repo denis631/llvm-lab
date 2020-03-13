@@ -10,6 +10,11 @@ namespace pcpo {
 
 /// Matrix. Row and column are indexed beginning at 0
 template<typename T> class Matrix {
+protected:
+    vector<vector<T>> vectors;
+    int width;
+    int height;
+
 public:
     //MARK: - Initializers
     /// Creates a matrix with dimensions  height x width and initalizes its values to `value`
@@ -278,9 +283,6 @@ public:
     };
 
 protected:
-    vector<vector<T>> vectors;
-    int width;
-    int height;
 
     // MARK: - Echelon helpers
 
