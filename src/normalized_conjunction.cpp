@@ -136,7 +136,9 @@ void NormalizedConjunction::applyDefault(Instruction const& inst) {
     
     type = dyn_cast<IntegerType>(inst.getOperand(1)->getType());
     if (not type) return nonDeterminsticAssignment(&inst);
-    
+
+    // TODO: handle undef values
+
     for (Value const* value: inst.operand_values()) {
         operands.push_back(LinearEquality(value));
     }

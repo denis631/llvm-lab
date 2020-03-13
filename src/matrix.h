@@ -55,8 +55,8 @@ public:
     /// Creates a matrix from a 2D vector
     /// @param vectors 2D vector containing columns with rows
     Matrix(vector<vector<T>> const &vectors) {
-        this->height = vectors.size();
         this->width = vectors.front().size();
+        this->height = vectors.size();
         this->vectors = vectors;
     };
 
@@ -147,7 +147,7 @@ public:
         return rank;
     }
 
-    /// Linear span of the matrix ... fixme
+    /// Basis of the linear span of the column vectors
     static Matrix<T> span(Matrix<T> matrix) {
         vector<vector<T>> columns;
         int rank = matrix.getRank();
@@ -156,6 +156,9 @@ public:
         }
         return Matrix(columns).transpose();
     }
+
+    /// Computes the null space for the column vectors
+    static Matrix<T> null(Matrix<T> matrix);
 
     /// Converts the matrix to a 1D Vector by stacking the column vectors
     std::vector<T> toVector() const {
@@ -176,7 +179,7 @@ public:
 
     vector<Matrix<T>> reshapeColumns(int height, int width) const {
         vector<Matrix<T>> result;
-        for (int c = 0; c < width; c++) {
+        for (int c = 0; c < getWidth(); c++) {
             result.push_back(Matrix(column(c), height, width));
         }
         return result;

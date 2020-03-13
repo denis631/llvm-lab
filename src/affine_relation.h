@@ -11,17 +11,18 @@ namespace pcpo {
 
 class AffineRelation {
 private:
-    int lastIndex = 0;
-    int numberOfVariables = 100;
+    /// Only valid when `createVariableIndexMap` has been generated.
+    int getNumberOfVariables() { return index.size(); };
+    std::unordered_map<llvm::Value const*, int> createVariableIndexMap(llvm::Function const& func);
 public:
     std::unordered_map<llvm::Value const*, int> index;
-    Matrix<int> matrix;
+    std::vector<Matrix<int>> basis;
     bool isBottom = true;
 
     AffineRelation() = default;
     AffineRelation(AffineRelation const& state) = default;
 
-    explicit AffineRelation(llvm::Function const& f);
+    explicit AffineRelation(llvm::Function const& func);
     /// This constructor is used to initialize the state of a function call, to which parameters are passed.
     /// This is the "enter" function as described in "Compiler Design: Analysis and Transformation"
     explicit AffineRelation(llvm::Function const* callee_func, AffineRelation const& state, llvm::CallInst const* call);
@@ -48,6 +49,7 @@ public:
 
     // Abstract Assignments
     void affineAssignment(llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
+    void affineAssignment(llvm::Value const* xi, std::unordered_map<llvm::Value const*,int> relations, int constant);
     void nonDeterminsticAssignment(llvm::Value const* xi);
 
 protected:
