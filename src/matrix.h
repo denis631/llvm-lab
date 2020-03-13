@@ -136,13 +136,13 @@ public:
     }
 
     /// Converts the matrix to a 1D Vector by stacking the column vectors
-    Matrix<T> toVector() const {
+    std::vector<T> toVector() const {
         vector<T> result;
         result.reserve(getWidth() * getHeight());
         for (vector<T> vector: vectors) {
             result.insert(result.end(), vector.begin(), vector.end());
         }
-        return Matrix(result);
+        return result;
     }
 
     /// Converts a 1D Vector to a Matrix with given dimensions
@@ -160,6 +160,13 @@ public:
             }
         }
         return Matrix(result);
+    }
+    
+    vector<Matrix<T>> reshapeColumns(int height, int width) const {
+        vector<Matrix<T>> result;
+        for (int c = 0; c < width; c++) {
+            result.push_back(column(c).reshape(height, width));
+        }
     }
 
     /// Returns the value at row i and column j
