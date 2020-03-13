@@ -48,7 +48,7 @@ public:
         for (int i = 0; i < height; i++) {
             vector<T> vector(width,0);
             vector[i] = 1;
-            vectors[i] = vector;
+            vectors.push_back(vector);
         }
     };
 
@@ -65,6 +65,23 @@ public:
     Matrix(vector<T> const &vector) {
         std::vector<std::vector<T>> vectors = {vector};
         this->vectors = vectors;
+    };
+
+    Matrix(vector<T> const &values, int rows, int columns) {
+        assert(int(values.size()) == rows * columns);
+        vector<vector<T>> result;
+        result.reserve(rows);
+        for (int row = 0; row < rows; row++) {
+            vector<T> rowVector;
+            rowVector.reserve(columns);
+            for (int column = 0; column < columns; column++) {
+                rowVector.push_back(values[row * rows + column]);
+            }
+            result.push_back(rowVector);
+        }
+        this->vectors = result;
+        this->width = columns;
+        this->height = rows;
     };
 
     // MARK: - Properties
@@ -154,24 +171,15 @@ public:
     /// @param rows number of rows
     /// @param columns number of columns
     Matrix<T> reshape(int rows, int columns) const {
-        assert(getWidth() == 1 && getHeight() == rows * columns);
-        vector<vector<T>> result;
-        result.reserve(rows);
-        for (int row = 0; row < rows; row++) {
-            vector<T> rowVector;
-            rowVector.reserve(columns);
-            for (int column = 0; column < columns; column++) {
-                rowVector.push_back(value(row,column));
-            }
-        }
-        return Matrix(result);
-    }
-    
+        return Matrix(vectors.front(), rows, columns);
+    };
+
     vector<Matrix<T>> reshapeColumns(int height, int width) const {
         vector<Matrix<T>> result;
         for (int c = 0; c < width; c++) {
-            result.push_back(column(c).reshape(height, width));
+            result.push_back(Matrix(column(c), height, width));
         }
+        return result;
     }
 
     /// Returns the value at row i and column j
@@ -208,6 +216,13 @@ public:
             row.push_back(x[i]);
         }
         return row;
+    }
+
+    void setColumn(vector<T> const& vector, int column) {
+        assert(int(vector.size()) == height);
+        for (int row = 0; row < height; row++) {
+            value(row,column) = vector[row];
+        }
     }
 
     // MARK: - Operators
