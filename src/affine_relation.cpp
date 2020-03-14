@@ -323,9 +323,10 @@ void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int i
         out << "\t";
         for (auto [val, idx]: index) {
             if (val->hasName()) {
-                out << val->getName();
+                out << val->getName() << "\t\t";
+            } else {
+                dbgs(3) << "<>" << "\t\t";
             }
-            out << "\t\t";
         }
         out << "\n" << m << "\n";
     }
@@ -336,9 +337,10 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
         out << "\t";
         for (auto [val, idx]: index) {
             if (val->hasName()) {
-                out << val->getName();
+                out << val->getName() << "\t\t";
+            } else {
+                dbgs(3) << "<>" << "\t\t";
             }
-            out << "\t\t";
         }
         out << "\n" << m << "\n";
     }
@@ -349,9 +351,10 @@ void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands)
         dbgs(3) << "\t";
         for (auto [val, idx]: index) {
             if (val->hasName()) {
-                dbgs(3) << val->getName();
+                dbgs(3) << val->getName() << "\t\t";
+            } else {
+                dbgs(3) << "<>" << "\t\t";
             }
-            dbgs(3) << "\t\t";
         }
         dbgs(3) << "\n" << m << "\n";
     }

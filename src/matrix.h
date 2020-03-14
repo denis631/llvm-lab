@@ -374,7 +374,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> matrix) {
     for (int row = 0; row < matrix.getHeight(); row++) {
         os << "[\t";
         for (int column = 0; column < matrix.getWidth(); column++) {
-            os << matrix(row,column) << "   \t";
+            os << matrix(row,column) << "\t\t";
         }
         os << "]\n";
     }
