@@ -320,12 +320,12 @@ unordered_map<Value const*, int> AffineRelation::createVariableIndexMap(Function
 
 void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     for (auto m: basis) {
-        out << "\t";
+        out << llvm::left_justify("", 8);
         for (auto [val, idx]: index) {
             if (val->hasName()) {
-                out << val->getName() << "\t\t";
+                out << llvm::left_justify(val->getName(), 6);
             } else {
-                dbgs(3) << "<>" << "\t\t";
+                out << llvm::left_justify("<>", 6);
             }
         }
         out << "\n" << m << "\n";
@@ -334,12 +334,12 @@ void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int i
 
 void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     for (auto m: basis) {
-        out << "\t";
+        out << llvm::left_justify("", 8);
         for (auto [val, idx]: index) {
             if (val->hasName()) {
-                out << val->getName() << "\t\t";
+                out << llvm::left_justify(val->getName(), 6);
             } else {
-                dbgs(3) << "<>" << "\t\t";
+                out << llvm::left_justify("<>", 6);
             }
         }
         out << "\n" << m << "\n";
@@ -348,12 +348,12 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
 
 void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands) {
     for (auto m: basis) {
-        dbgs(3) << "\t";
+        dbgs(3) << llvm::left_justify("", 8);
         for (auto [val, idx]: index) {
             if (val->hasName()) {
-                dbgs(3) << val->getName() << "\t\t";
+                dbgs(3) << llvm::left_justify(val->getName(), 6);
             } else {
-                dbgs(3) << "<>" << "\t\t";
+                dbgs(3) << llvm::left_justify("<>", 6);
             }
         }
         dbgs(3) << "\n" << m << "\n";

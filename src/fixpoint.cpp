@@ -310,7 +310,7 @@ void executeFixpointAlgorithm(Module const& M) {
         dbgs(3) << "  Merging with stored state\n";
         bool changed = node.state.merge(merge_op, state_new);
 
-        dbgs(2) << "  Outgoing state is:\n"; state_new.printOutgoing(*node.basic_block, dbgs(2), 4);
+        dbgs(2) << "  Outgoing state " << (changed ? "changd" : "didn't change") << ":\n"; state_new.printOutgoing(*node.basic_block, dbgs(2), 4);
 
         // No changes, so no need to do anything else
         if (not changed) continue;
