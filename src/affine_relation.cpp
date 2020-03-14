@@ -170,12 +170,11 @@ bool AffineRelation::leastUpperBound(AffineRelation rhs) {
     }
     // FIXME: i think this is transposing it twice. Maybe create a fast path for this kind of thing.
     Matrix<int> combined = Matrix<int>(vectors).transpose();
-    dbgs(4) << combined;
     Matrix<int> result = Matrix<int>::span(combined);
 
     basis = result.reshapeColumns(basis.front().getHeight(), basis.front().getHeight());
     // FIXME: figure out a better way to detect changes
-    return before == basis;
+    return before != basis;
 }
 
 // MARK: - Assignments
@@ -187,7 +186,7 @@ void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const
         Wr(index.at(variable),index.at(xi)) = factor;
     }
 
-    for (Matrix<int> matrix: basis) {
+    for (Matrix<int>& matrix: basis) {
         matrix *= Matrix<int>::span(Wr);
     }
 }
