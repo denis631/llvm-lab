@@ -26,26 +26,12 @@ AffineRelation::AffineRelation(Function const* callee_func, AffineRelation const
         if (value->getType()->isIntegerTy()) {
             if (ConstantInt const* c = dyn_cast<ConstantInt>(value)) {
                 affineAssignment(&arg, 1, nullptr, c->getSExtValue());
-//                for (Matrix<int> m: basis) {
-//                    vector<int> column = vector(m.getHeight(),0);
-//                    column[0] = c->getSExtValue();
-//                    m.setColumn(column, index[&arg]);
-//                }
             } else {
                 affineAssignment(&arg, 1, value, 0);
-//                for (Matrix<int> m: basis) {
-//                    // FIXME: get value from state??. Problem: state can have multiple basis. (affineAssignment)?
-//                    m.value(index[value], index[&arg]) = 1;
-//                }
             }
-        } else {
-//            affineAssignment(&arg, 1, &arg, 0);
-//            for (Matrix<int> m: basis) {
-//                m.value(index[&arg], index[&arg]) = 1;
-//            }
         }
     }
-    isBottom = basis.empty();;
+    isBottom = basis.empty();
 }
 
 // MARK: - AbstractState Interface
@@ -61,13 +47,6 @@ void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> p
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
             AffineRelation acc = *this;
             acc.affineAssignment(&phi, 1, nullptr, c->getSExtValue());
-
-//            AffineRelation acc = *this;
-//            vector<int> column = vector(getNumberOfVariables() + 1,0);
-//            column[0] = c->getSExtValue();
-//            for (auto m: acc.basis) {
-//                m.setColumn(column, index[&phi]);
-//            }
             merge(Merge_op::UPPER_BOUND, acc);
         } else {
             AffineRelation acc = *this;
@@ -75,11 +54,6 @@ void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> p
                 auto val = m.column(index.at(&incoming_value));
                 acc.affineAssignment(&phi, 1, &incoming_value, 0);
             }
-//            vector<int> column = incoming_state.basis.front().column(index[&incoming_value]);
-//            // TODO: How do we handle multiple basis?
-//            for (auto m: acc.basis) {
-//                m.setColumn(column, index[&phi]);
-//            }
             merge(Merge_op::UPPER_BOUND, acc);
         }
         i++;
@@ -102,14 +76,7 @@ void AffineRelation::applyCallInst(Instruction const& inst, BasicBlock const* en
 
             if (callee_state.index.find(ret_val) != callee_state.index.end()) {
                 dbgs(4) << "      Return evaluated, merging parameters\n";
-
                 affineAssignment(&inst, 1, ret_val, 0);
-
-                // FIXME: What about multiple basis?
-//                vector<int> returnValue = callee_state.basis.front().column(index[ret_val]);
-//                for (Matrix<int> m: basis) {
-//                    m.setColumn(returnValue, index[&inst]);
-//                }
             } else {
                 dbgs(4) << "      Return not evaluated, setting to bottom\n";
                 // TODO: What should we do here
@@ -124,18 +91,8 @@ void AffineRelation::applyReturnInst(Instruction const& inst) {
     if (ret_val && ret_val->getType()->isIntegerTy()) {
         if (ConstantInt const* c = dyn_cast<ConstantInt>(ret_val)) {
             affineAssignment(&inst, 1, nullptr, c->getSExtValue());
-//            vector<int> column = vector(getNumberOfVariables() + 1,0);
-//            column[0] = c->getSExtValue();
-//            for (Matrix<int> m: basis) {
-//                m.setColumn(column, index[&inst]);
-//            }
         } else {
             affineAssignment(&inst, 1, ret_val, 0);
-            // FIXME: Handle multiple basis!
-//            vector<int> column = basis.front().column(index[ret_val]);
-//            for (Matrix<int> m: basis) {
-//                m.setColumn(column, index[&inst]);
-//            }
         }
     }
 }
@@ -231,8 +188,7 @@ void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const
     }
 
     for (Matrix<int> matrix: basis) {
-        // FIXME: span(Wr)
-        matrix *= Wr;
+        matrix *= Matrix<int>::span(Wr);
     }
 }
 
@@ -363,8 +319,8 @@ unordered_map<Value const*, int> AffineRelation::createVariableIndexMap(Function
 // MARK: - debug output
 
 void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
-    // TODO
     for (auto m: basis) {
+        out << "\t";
         for (auto [val, idx]: index) {
             if (val->hasName()) {
                 out << val->getName();
@@ -376,8 +332,8 @@ void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int i
 }
 
 void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
-    // TODO
     for (auto m: basis) {
+        out << "\t";
         for (auto [val, idx]: index) {
             if (val->hasName()) {
                 out << val->getName();
@@ -389,8 +345,8 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
 }
 
 void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands) {
-    // TODO
     for (auto m: basis) {
+        dbgs(3) << "\t";
         for (auto [val, idx]: index) {
             if (val->hasName()) {
                 dbgs(3) << val->getName();
