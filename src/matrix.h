@@ -55,7 +55,8 @@ public:
     /// Creates a matrix from a 2D vector
     /// @param vectors 2D vector containing columns with rows
     Matrix(vector<vector<T>> const &vectors) {
-        this->width = vectors.front().size();
+        assert(all_of(vectors.begin(), vectors.end(), [&vectors](vector<T> vec){ return vec.size() == vectors.front().size(); }));
+        this->width = vectors.empty() ? 0 : vectors.front().size();
         this->height = vectors.size();
         this->vectors = vectors;
     };
@@ -64,6 +65,8 @@ public:
     /// @param vector the vector
     Matrix(vector<T> const &vector) {
         std::vector<std::vector<T>> vectors = {vector};
+        this->width = vector.size();
+        this->height = vector.empty() ? 0 : 1;
         this->vectors = vectors;
     };
 
@@ -151,7 +154,7 @@ public:
     static Matrix<T> span(Matrix<T> const& matrix) {
         vector<vector<T>> columns;
         int rank = matrix.getRank();
-        for (int col = 0; col<rank; col++) {
+        for (int col = 0; col < rank; col++) {
             columns.push_back(matrix.column(col));
         }
         return Matrix(columns).transpose();
@@ -174,7 +177,9 @@ public:
     /// @param rows number of rows
     /// @param columns number of columns
     Matrix<T> reshape(int rows, int columns) const {
-        return Matrix(vectors.front(), rows, columns);
+        assert(rows > 0 && columns > 0);
+        Matrix<T> t = transpose();
+        return Matrix(t.vectors.front(), rows, columns);
     };
 
     vector<Matrix<T>> reshapeColumns(int height, int width) const {
