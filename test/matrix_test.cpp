@@ -312,7 +312,7 @@ bool MatrixTest<T>::runTestSpan1() {
     };
 
     auto matrix = Matrix(a);
-    auto actual = Matrix<int>::span(matrix);
+    auto actual = Matrix<T>::span(matrix);
 
 
     result = actual == Matrix(expected);
@@ -334,6 +334,16 @@ int main() {
              && MatrixTest<int>::runTestRank2()
              && MatrixTest<int>::runTestRank3()
              && MatrixTest<int>::runTestSpan1()
+             && MatrixTest<double>::runTestMul2()
+             && MatrixTest<double>::runTestTranspose1()
+             && MatrixTest<double>::runTestTranspose2()
+             && MatrixTest<double>::runTestEchelon1()
+             && MatrixTest<double>::runTestEchelon2()
+             && MatrixTest<double>::runTestEchelon3()
+             && MatrixTest<double>::runTestRank1()
+             && MatrixTest<double>::runTestRank2()
+             && MatrixTest<double>::runTestRank3()
+             && MatrixTest<double>::runTestSpan1()
     );
 };
 
