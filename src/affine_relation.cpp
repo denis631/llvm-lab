@@ -1,4 +1,6 @@
 #include "affine_relation.h"
+#include "global.h"
+
 #include "llvm/IR/CFG.h"
 
 #include <set>
@@ -328,7 +330,7 @@ unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> cons
 void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     auto reversed = reverseMap(index);
     if (basis.empty()) {
-        dbgs(3) << "[]";
+        dbgs(3) << "[]\n";
         return;
     }
     for (auto m: basis) {
@@ -348,7 +350,7 @@ void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int i
 void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     auto reversed = reverseMap(index);
     if (basis.empty()) {
-        dbgs(3) << "[]";
+        dbgs(3) << "[]\n";
         return;
     }
     for (auto m: basis) {
@@ -368,7 +370,7 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
 void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands) {
     auto reversed = reverseMap(index);
     if (basis.empty()) {
-        dbgs(3) << "[]";
+        dbgs(3) << "[]\n";
         return;
     }
     for (auto m: basis) {
@@ -383,6 +385,27 @@ void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands)
         }
         dbgs(3) << "\n" << m << "\n";
     }
+}
+
+
+raw_ostream& operator<<(raw_ostream& os, AffineRelation const& relation) {
+    auto reversed = reverseMap(relation.index);
+    if (relation.basis.empty()) {
+        return os << "[]\n";
+    }
+    for (auto m: relation.basis) {
+        os << left_justify("", 8);
+        for (int i = 1; i <= int(relation.index.size()); i++) {
+            auto val = reversed[i];
+            if (val->hasName()) {
+                os << left_justify(val->getName(), 6);
+            } else {
+                os << left_justify("<>", 6);
+            }
+        }
+        os << "\n" << m << "\n";
+    }
+    return os;
 }
 
 }

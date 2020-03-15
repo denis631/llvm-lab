@@ -42,8 +42,6 @@ public:
 
     bool checkOperandsForBottom(llvm::Instruction const& inst) { return false; }
 
-//    Matrix<int> AffineRelation::getAbstractValue(llvm::Value const& value) const;
-
     void printIncoming(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;
 
@@ -63,6 +61,8 @@ protected:
 
     Matrix<int> createTransformationMatrix(llvm::Instruction const& inst);
 };
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, AffineRelation const& relation);
 
 
 }
