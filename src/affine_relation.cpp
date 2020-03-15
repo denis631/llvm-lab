@@ -14,7 +14,7 @@ namespace pcpo {
 
 AffineRelation::AffineRelation(Function const& func) {
     index = createVariableIndexMap(func);
-    basis = {Matrix<int>(getNumberOfVariables() + 1)};
+    basis = {Matrix<T>(getNumberOfVariables() + 1)};
     isBottom = basis.empty();
 }
 
@@ -160,19 +160,19 @@ bool AffineRelation::merge(Merge_op::Type op, AffineRelation const& other) {
 
 bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
     assert(getNumberOfVariables() == rhs.getNumberOfVariables());
-    vector<Matrix<int>> before = basis;
-    vector<vector<int>> vectors;
+    vector<Matrix<T>> before = basis;
+    vector<vector<T>> vectors;
     vectors.reserve(basis.size() + rhs.basis.size());
-    for (Matrix<int> m: basis) {
+    for (Matrix<T> m: basis) {
         vectors.push_back(m.toVector());
     }
 
-    for (Matrix<int> m: rhs.basis) {
+    for (Matrix<T> m: rhs.basis) {
         vectors.push_back(m.toVector());
     }
     // FIXME: i think this is transposing it twice. Maybe create a fast path for this kind of thing.
-    Matrix<int> combined = Matrix<int>(vectors).transpose();
-    Matrix<int> result = Matrix<int>::span(combined);
+    Matrix<T> combined = Matrix<T>(vectors).transpose();
+    Matrix<T> result = Matrix<T>::span(combined);
 
     basis = result.reshapeColumns(basis.front().getHeight(), basis.front().getHeight());
     // FIXME: figure out a better way to detect changes
@@ -181,19 +181,26 @@ bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
 
 // MARK: - Assignments
 
-void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const*,int> relations, int constant) {
-    Matrix<int> Wr = Matrix<int>(getNumberOfVariables() + 1);
+void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const*,T> relations, T constant) {
+    Matrix<T> Wr = Matrix<T>(getNumberOfVariables() + 1);
+    Wr(index.at(xi),index.at(xi)) = 0;
     Wr(0,index.at(xi)) = constant;
+
     for (auto [variable, factor]: relations) {
         Wr(index.at(variable),index.at(xi)) = factor;
     }
 
-    for (Matrix<int>& matrix: basis) {
-        matrix *= Matrix<int>::span(Wr);
+    // FIXME: this seems quite inefficient
+    Matrix<T> vector = Matrix(Wr.toVector()).transpose();
+    Matrix<T> vectorSpan = Matrix<T>::span(vector);
+    Wr = vectorSpan.reshape(Wr.getHeight(), Wr.getWidth());
+
+    for (Matrix<T>& matrix: basis) {
+        matrix *= Wr;
     }
 }
 
-void AffineRelation::affineAssignment(Value const* xi, int64_t a, Value const* xj, int64_t b) {
+void AffineRelation::affineAssignment(Value const* xi, T a, Value const* xj, T b) {
     if (xj == nullptr) {
         affineAssignment(xi, {}, b);
     } else {
@@ -202,8 +209,8 @@ void AffineRelation::affineAssignment(Value const* xi, int64_t a, Value const* x
 }
 
 void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
-    Matrix<int> T0 = Matrix<int>(getNumberOfVariables() + 1);
-    Matrix<int> T1 = Matrix<int>(getNumberOfVariables() + 1);
+    Matrix<T> T0 = Matrix<T>(getNumberOfVariables() + 1);
+    Matrix<T> T1 = Matrix<T>(getNumberOfVariables() + 1);
 
     T0(index.at(xi),index.at(xi)) = 0;
     T0(0,index.at(xi)) = 0;
@@ -211,7 +218,7 @@ void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
     T1(index.at(xi),index.at(xi)) = 0;
     T1(0,index.at(xi)) = 1;
 
-    for (Matrix<int> matrix: basis) {
+    for (Matrix<T> matrix: basis) {
         // FIXME: span({T0,T1}) or even leastUpperBound
         matrix *= T0;
         matrix *= T1;
@@ -367,7 +374,7 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
     }
 }
 
-void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands) {
+void AffineRelation::debug_output(Instruction const& inst, Matrix<T> operands) {
     auto reversed = reverseMap(index);
     if (basis.empty()) {
         dbgs(3) << "[]\n";

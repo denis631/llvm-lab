@@ -10,13 +10,16 @@
 namespace pcpo {
 
 class AffineRelation {
+
+    using T = int;
+
 private:
     /// Only valid when `createVariableIndexMap` has been generated.
     int getNumberOfVariables() const { return index.size(); };
     std::unordered_map<llvm::Value const*, int> createVariableIndexMap(llvm::Function const& func);
 public:
     std::unordered_map<llvm::Value const*, int> index;
-    std::vector<Matrix<int>> basis;
+    std::vector<Matrix<T>> basis;
     bool isBottom = true;
 
     AffineRelation() = default;
@@ -46,8 +49,8 @@ public:
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation) const;
 
     // Abstract Assignments
-    void affineAssignment(llvm::Value const* xi, int64_t a, llvm::Value const* xj, int64_t b);
-    void affineAssignment(llvm::Value const* xi, std::unordered_map<llvm::Value const*,int> relations, int constant);
+    void affineAssignment(llvm::Value const* xi, T a, llvm::Value const* xj, T b);
+    void affineAssignment(llvm::Value const* xi, std::unordered_map<llvm::Value const*,T> relations, T constant);
     void nonDeterminsticAssignment(llvm::Value const* xi);
 
 protected:
@@ -57,9 +60,9 @@ protected:
     void Mul(llvm::Instruction const& inst);
 
     /// Used for debug output
-    void debug_output(llvm::Instruction const& inst, Matrix<int> operands);
+    void debug_output(llvm::Instruction const& inst, Matrix<T> operands);
 
-    Matrix<int> createTransformationMatrix(llvm::Instruction const& inst);
+    Matrix<T> createTransformationMatrix(llvm::Instruction const& inst);
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, AffineRelation const& relation);
