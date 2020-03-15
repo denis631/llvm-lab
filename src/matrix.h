@@ -111,7 +111,7 @@ public:
     };
 
     /// Transforms the matrix to reduced row echelon form
-    Matrix echelon() const {
+    Matrix echelonForm() const {
         Matrix result = Matrix(*this);
         int pivot = 0;
         for (int row = 0; row < height; row++) {
@@ -136,7 +136,7 @@ public:
 
     /// The rank of the matrix
     int getRank() const {
-        Matrix e = echelon();
+        Matrix e = echelonForm();
         int rank = 0;
         for (int row = 0; row < height; row++) {
             for (int column = 0; column < width; column++) {
@@ -153,12 +153,13 @@ public:
 
     /// Basis of the linear span of the column vectors
     static Matrix<T> span(Matrix<T> const& matrix) {
-        vector<vector<T>> columns;
-        int rank = matrix.getRank();
-        for (int col = 0; col < rank; col++) {
-            columns.push_back(matrix.column(col));
+        vector<vector<T>> rows;
+        Matrix<T> te = matrix.transpose().echelonForm();
+        int rank = te.getRank();
+        for (int row = 0; row < rank; row++) {
+            rows.push_back(te.row(row));
         }
-        return Matrix(columns).transpose();
+        return Matrix(rows).transpose();
     }
 
     /// Computes the null space for the column vectors
@@ -211,6 +212,11 @@ public:
     /// Returns a vector with the elements of the row at index i. The returned row can be modified.
     /// @param i Index of the row to return.
     vector<T>& row(int i) {
+        assert(i < getHeight());
+        return vectors[i];
+    };
+
+    vector<T> row(int i) const {
         assert(i < getHeight());
         return vectors[i];
     };
@@ -305,6 +311,10 @@ public:
     bool operator==(Matrix<T> const& rhs) const {
         return rhs.vectors == rhs.vectors && width == rhs.width && height == rhs.height;
     };
+
+    void print() const {
+        dbgs(4) << *this;
+    }
 
 protected:
 

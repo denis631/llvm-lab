@@ -165,7 +165,7 @@ bool MatrixTest<T>::runTestEchelon1() {
     };
 
     auto matrix = Matrix(a);
-    auto actual = matrix.echelon();
+    auto actual = matrix.echelonForm();
 
     auto x = Matrix(expected);
     result = actual == x;
@@ -192,7 +192,7 @@ bool MatrixTest<T>::runTestEchelon2() {
     };
 
     auto matrix = Matrix(a);
-    auto actual = matrix.echelon();
+    auto actual = matrix.echelonForm();
 
     auto x = Matrix(expected);
     result = actual == x;
@@ -219,7 +219,7 @@ bool MatrixTest<T>::runTestEchelon3() {
     };
 
     auto matrix = Matrix(a);
-    auto actual = matrix.echelon();
+    auto actual = matrix.echelonForm();
 
     auto x = Matrix(expected);
     result = actual == x;
