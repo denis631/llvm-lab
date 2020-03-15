@@ -327,6 +327,10 @@ unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> cons
 
 void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     auto reversed = reverseMap(index);
+    if (basis.empty()) {
+        dbgs(3) << "[]";
+        return;
+    }
     for (auto m: basis) {
         out << llvm::left_justify("", 8);
         for (int i = 1; i <= getNumberOfVariables(); i++) {
@@ -343,6 +347,10 @@ void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int i
 
 void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     auto reversed = reverseMap(index);
+    if (basis.empty()) {
+        dbgs(3) << "[]";
+        return;
+    }
     for (auto m: basis) {
         out << llvm::left_justify("", 8);
         for (int i = 1; i <= getNumberOfVariables(); i++) {
@@ -359,6 +367,10 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
 
 void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands) {
     auto reversed = reverseMap(index);
+    if (basis.empty()) {
+        dbgs(3) << "[]";
+        return;
+    }
     for (auto m: basis) {
         dbgs(3) << llvm::left_justify("", 8);
         for (int i = 1; i <= getNumberOfVariables(); i++) {
