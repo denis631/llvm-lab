@@ -3,6 +3,7 @@
 #include "global.h"
 
 #include <vector>
+#include <type_traits>
 
 using namespace std;
 
@@ -379,10 +380,18 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> const& matrix) {
     for (int row = 0; row < matrix.getHeight(); row++) {
         os << "[ ";
         for (int column = 0; column < matrix.getWidth(); column++) {
-            if (column == matrix.getWidth() - 1) {
-                os << llvm::format("%d", matrix.value(row,column));
+            if constexpr (std::is_floating_point_v<T>) {
+                if (column == matrix.getWidth() - 1) {
+                    os << llvm::format("%f", matrix.value(row,column));
+                } else {
+                    os << llvm::format("%-6.2f", matrix.value(row,column));
+                }
             } else {
-                os << llvm::format("%-6d", matrix.value(row,column));
+                if (column == matrix.getWidth() - 1) {
+                    os << llvm::format("%d", matrix.value(row,column));
+                } else {
+                    os << llvm::format("%-6d", matrix.value(row,column));
+                }
             }
         }
         os << " ]\n";
