@@ -317,10 +317,20 @@ unordered_map<Value const*, int> AffineRelation::createVariableIndexMap(Function
 
 // MARK: - debug output
 
+unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> map) {
+    unordered_map<int,Value const*> reversed;
+    for (auto [key, value]: map) {
+        reversed[value] = key;
+    }
+    return reversed;
+}
+
 void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
+    auto reversed = reverseMap(index);
     for (auto m: basis) {
         out << llvm::left_justify("", 8);
-        for (auto [val, idx]: index) {
+        for (int i = 1; i <= getNumberOfVariables(); i++) {
+            auto val = reversed[i];
             if (val->hasName()) {
                 out << llvm::left_justify(val->getName(), 6);
             } else {
@@ -332,9 +342,11 @@ void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int i
 }
 
 void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
+    auto reversed = reverseMap(index);
     for (auto m: basis) {
         out << llvm::left_justify("", 8);
-        for (auto [val, idx]: index) {
+        for (int i = 1; i <= getNumberOfVariables(); i++) {
+            auto val = reversed[i];
             if (val->hasName()) {
                 out << llvm::left_justify(val->getName(), 6);
             } else {
@@ -346,9 +358,11 @@ void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int i
 }
 
 void AffineRelation::debug_output(Instruction const& inst, Matrix<int> operands) {
+    auto reversed = reverseMap(index);
     for (auto m: basis) {
         dbgs(3) << llvm::left_justify("", 8);
-        for (auto [val, idx]: index) {
+        for (int i = 1; i <= getNumberOfVariables(); i++) {
+            auto val = reversed[i];
             if (val->hasName()) {
                 dbgs(3) << llvm::left_justify(val->getName(), 6);
             } else {

@@ -12,7 +12,7 @@ namespace pcpo {
 class AffineRelation {
 private:
     /// Only valid when `createVariableIndexMap` has been generated.
-    int getNumberOfVariables() { return index.size(); };
+    int getNumberOfVariables() const { return index.size(); };
     std::unordered_map<llvm::Value const*, int> createVariableIndexMap(llvm::Function const& func);
 public:
     std::unordered_map<llvm::Value const*, int> index;
