@@ -43,7 +43,7 @@ NormalizedConjunction::NormalizedConjunction(Function const* callee_func, Normal
     isBottom = false;
 }
 
-NormalizedConjunction::NormalizedConjunction(std::unordered_map<Value const*, LinearEquality> equalaties) {
+NormalizedConjunction::NormalizedConjunction(std::unordered_map<Value const*, LinearEquality> const& equalaties) {
     this->values = equalaties;
     isBottom = equalaties.empty();
     for (auto& [key, value]: equalaties) {

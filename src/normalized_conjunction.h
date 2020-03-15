@@ -26,7 +26,7 @@ public:
     
     NormalizedConjunction() = default;
     NormalizedConjunction(NormalizedConjunction const& state) = default;
-    NormalizedConjunction(std::unordered_map<llvm::Value const*, LinearEquality> equalaties);
+    NormalizedConjunction(std::unordered_map<llvm::Value const*, LinearEquality> const& equalaties);
     
     explicit NormalizedConjunction(llvm::Function const& f);
     /// This constructor is used to initialize the state of a function call, to which parameters are passed.

@@ -28,7 +28,7 @@ public:
     explicit AffineRelation(llvm::Function const* callee_func, AffineRelation const& state, llvm::CallInst const* call);
 
     /// Handles the evaluation of merging points
-    void applyPHINode(llvm::BasicBlock const& bb, std::vector<AffineRelation> pred_values, llvm::Instruction const& phi);
+    void applyPHINode(llvm::BasicBlock const& bb, std::vector<AffineRelation> const& pred_values, llvm::Instruction const& phi);
     /// Handles the evaluation of function calls
     /// This is the "combine" function as described in "Compiler Design: Analysis and Transformation"
     void applyCallInst(llvm::Instruction const& inst, llvm::BasicBlock const* end_block, AffineRelation const& callee_state);
@@ -38,7 +38,7 @@ public:
     void applyDefault(llvm::Instruction const& inst);
     bool merge(Merge_op::Type op, AffineRelation const& other);
     void branch(llvm::BasicBlock const& from, llvm::BasicBlock const& towards) { return; };
-    bool leastUpperBound(AffineRelation rhs);
+    bool leastUpperBound(AffineRelation const& rhs);
 
     bool checkOperandsForBottom(llvm::Instruction const& inst) { return false; }
 

@@ -148,7 +148,7 @@ public:
     }
 
     /// Basis of the linear span of the column vectors
-    static Matrix<T> span(Matrix<T> matrix) {
+    static Matrix<T> span(Matrix<T> const& matrix) {
         vector<vector<T>> columns;
         int rank = matrix.getRank();
         for (int col = 0; col<rank; col++) {
@@ -158,7 +158,7 @@ public:
     }
 
     /// Computes the null space for the column vectors
-    static Matrix<T> null(Matrix<T> matrix);
+    static Matrix<T> null(Matrix<T> const& matrix);
 
     /// Converts the matrix to a 1D Vector by stacking the column vectors
     std::vector<T> toVector() const {
@@ -370,14 +370,14 @@ template <typename T>
 inline Matrix<T> operator-(Matrix<T> lhs, T scalar) { return lhs -= scalar; };
 
 template <typename T>
-llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> matrix) {
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> const& matrix) {
     for (int row = 0; row < matrix.getHeight(); row++) {
         os << "[ ";
         for (int column = 0; column < matrix.getWidth(); column++) {
             if (column == matrix.getWidth() - 1) {
-                os << llvm::format("%d", matrix(row,column));
+                os << llvm::format("%d", matrix.value(row,column));
             } else {
-                os << llvm::format("%-6d", matrix(row,column));
+                os << llvm::format("%-6d", matrix.value(row,column));
             }
         }
         os << " ]\n";

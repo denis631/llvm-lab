@@ -36,7 +36,7 @@ AffineRelation::AffineRelation(Function const* callee_func, AffineRelation const
 
 // MARK: - AbstractState Interface
 
-void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> pred_values, Instruction const& phi) {
+void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> const& pred_values, Instruction const& phi) {
     PHINode const* phiNode = dyn_cast<PHINode>(&phi);
     int i = 0;
 
@@ -156,7 +156,7 @@ bool AffineRelation::merge(Merge_op::Type op, AffineRelation const& other) {
 
 // MARK: - Lattice Operations
 
-bool AffineRelation::leastUpperBound(AffineRelation rhs) {
+bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
     assert(getNumberOfVariables() == rhs.getNumberOfVariables());
     vector<Matrix<int>> before = basis;
     vector<vector<int>> vectors;
@@ -317,7 +317,7 @@ unordered_map<Value const*, int> AffineRelation::createVariableIndexMap(Function
 
 // MARK: - debug output
 
-unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> map) {
+unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> const& map) {
     unordered_map<int,Value const*> reversed;
     for (auto [key, value]: map) {
         reversed[value] = key;
