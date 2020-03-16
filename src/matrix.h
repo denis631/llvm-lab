@@ -156,6 +156,7 @@ public:
         vector<vector<T>> rows;
         Matrix<T> te = matrix.transpose().echelonForm();
         int rank = te.getRank();
+        rows.reserve(rank);
         for (int row = 0; row < rank; row++) {
             rows.push_back(te.row(row));
         }
@@ -169,8 +170,10 @@ public:
     std::vector<T> toVector() const {
         vector<T> result;
         result.reserve(getWidth() * getHeight());
-        for (vector<T> vector: vectors) {
-            result.insert(result.end(), vector.begin(), vector.end());
+        for (int column = 0; column < getWidth(); column++) {
+            for (int row = 0; row < getHeight(); row++) {
+                result.push_back(value(row,column));
+            }
         }
         return result;
     }
@@ -328,7 +331,7 @@ protected:
     /// Divides a row by a constant
     /// @param row  index of the row to divide
     /// @param quotient quotient to divide the row by
-    void divide_row(int row, int quotient) {
+    void divide_row(int row, T quotient) {
         for (int column = 0; column < width; column++) {
             value(row,column) /= quotient;
         }
@@ -338,7 +341,7 @@ protected:
     /// @param a Row to add a multiple of b to
     /// @param b Row to be added to row a
     /// @param factor Factor to multiply row b with when adding it to row a
-    void add_multiple_row(int a, int b, int factor) {
+    void add_multiple_row(int a, int b, T factor) {
         for (int column = 0; column < width; column++) {
             value(a,column) += value(b,column) * factor;
         }
