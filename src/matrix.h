@@ -183,8 +183,9 @@ public:
     /// @param columns number of columns
     Matrix<T> reshape(int rows, int columns) const {
         assert(rows > 0 && columns > 0);
+        // FIXME: Performance
         Matrix<T> t = transpose();
-        return Matrix(t.vectors.front(), rows, columns);
+        return Matrix(t.vectors.front(), rows, columns).transpose();
     };
 
     vector<Matrix<T>> reshapeColumns(int height, int width) const {
