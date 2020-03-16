@@ -10,14 +10,14 @@
 namespace pcpo {
 
 class AffineRelation {
-
-    using T = int;
-
 private:
     /// Only valid when `createVariableIndexMap` has been generated.
     int getNumberOfVariables() const { return index.size(); };
     std::unordered_map<llvm::Value const*, int> createVariableIndexMap(llvm::Function const& func);
 public:
+    /// Type used for Matrix values.
+    using T = double;
+
     std::unordered_map<llvm::Value const*, int> index;
     std::vector<Matrix<T>> basis;
     bool isBottom = true;
