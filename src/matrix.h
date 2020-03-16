@@ -191,7 +191,7 @@ public:
     vector<Matrix<T>> reshapeColumns(int height, int width) const {
         vector<Matrix<T>> result;
         for (int c = 0; c < getWidth(); c++) {
-            result.push_back(Matrix(column(c), height, width));
+            result.push_back(Matrix(column(c), height, width).transpose());
         }
         return result;
     }
