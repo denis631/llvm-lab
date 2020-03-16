@@ -45,7 +45,7 @@ void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> c
     for (BasicBlock const* pred_bb: llvm::predecessors(&bb)) {
         auto& incoming_value = *phiNode->getIncomingValueForBlock(pred_bb);
         auto& incoming_state = pred_values[i];
-
+        // Predecessor states should have been merged before. This is just bookkeeping.
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
             AffineRelation acc = *this;
             acc.affineAssignment(&phi, 1, nullptr, c->getSExtValue());
@@ -63,12 +63,8 @@ void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> c
 }
 
 void AffineRelation::applyCallInst(Instruction const& inst, BasicBlock const* end_block, AffineRelation const& callee_state) {
-//    std::vector<Matrix> operands;
-
-//     Keep the debug output happy
-//    for (llvm::Value const* value : inst.operand_values()) {
-//        operands.push_back(getAbstractValue(*value));
-//    }
+    // State changes from function call were not merged with the oredecessors.
+    // So we have to do more than just bookkeeping.
 
     //iterate through all instructions of it till we find a return statement
     for (Instruction const& iter_inst: *end_block) {
@@ -85,7 +81,6 @@ void AffineRelation::applyCallInst(Instruction const& inst, BasicBlock const* en
             }
         }
     }
-//    debug_output(inst, operands);
 }
 
 void AffineRelation::applyReturnInst(Instruction const& inst) {
@@ -100,8 +95,6 @@ void AffineRelation::applyReturnInst(Instruction const& inst) {
 }
 
 void AffineRelation::applyDefault(Instruction const& inst) {
-//    std::vector<LinearEquality> operands;
-
     if (inst.getNumOperands() != 2) return nonDeterminsticAssignment(&inst);
 
     // We only deal with integer types
@@ -118,11 +111,6 @@ void AffineRelation::applyDefault(Instruction const& inst) {
         return nonDeterminsticAssignment(&inst);
     }
 
-
-//    for (llvm::Value const* value: inst.operand_values()) {
-//        operands.push_back(getAbstractValue(*value));
-//    }
-
     switch (inst.getOpcode()) {
         case Instruction::Add:
             return Add(inst);
@@ -135,8 +123,6 @@ void AffineRelation::applyDefault(Instruction const& inst) {
         default:
             return nonDeterminsticAssignment(&inst);
     }
-
-//    debug_output(inst, operands);
 }
 
 bool AffineRelation::merge(Merge_op::Type op, AffineRelation const& other) {
@@ -335,63 +321,15 @@ unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> cons
 }
 
 void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
-    auto reversed = reverseMap(index);
-    if (basis.empty()) {
-        dbgs(3) << "[]\n";
-        return;
-    }
-    for (auto m: basis) {
-        out << llvm::left_justify("", 8);
-        for (int i = 1; i <= getNumberOfVariables(); i++) {
-            auto val = reversed[i];
-            if (val->hasName()) {
-                out << llvm::left_justify(val->getName(), 6);
-            } else {
-                out << llvm::left_justify("<>", 6);
-            }
-        }
-        out << "\n" << m << "\n";
-    }
+    out << *this;
 }
 
 void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
-    auto reversed = reverseMap(index);
-    if (basis.empty()) {
-        dbgs(3) << "[]\n";
-        return;
-    }
-    for (auto m: basis) {
-        out << llvm::left_justify("", 8);
-        for (int i = 1; i <= getNumberOfVariables(); i++) {
-            auto val = reversed[i];
-            if (val->hasName()) {
-                out << llvm::left_justify(val->getName(), 6);
-            } else {
-                out << llvm::left_justify("<>", 6);
-            }
-        }
-        out << "\n" << m << "\n";
-    }
+    out << *this;
 }
 
 void AffineRelation::debug_output(Instruction const& inst, Matrix<T> operands) {
-    auto reversed = reverseMap(index);
-    if (basis.empty()) {
-        dbgs(3) << "[]\n";
-        return;
-    }
-    for (auto m: basis) {
-        dbgs(3) << llvm::left_justify("", 8);
-        for (int i = 1; i <= getNumberOfVariables(); i++) {
-            auto val = reversed[i];
-            if (val->hasName()) {
-                dbgs(3) << llvm::left_justify(val->getName(), 6);
-            } else {
-                dbgs(3) << llvm::left_justify("<>", 6);
-            }
-        }
-        dbgs(3) << "\n" << m << "\n";
-    }
+    dbgs(3) << *this;
 }
 
 

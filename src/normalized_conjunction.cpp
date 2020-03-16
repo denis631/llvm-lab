@@ -86,11 +86,6 @@ void NormalizedConjunction::applyPHINode(BasicBlock const& bb, std::vector<Norma
 void NormalizedConjunction::applyCallInst(Instruction const& inst, BasicBlock const* end_block, NormalizedConjunction const& callee_state) {
     std::vector<LinearEquality> operands;
 
-//    // Keep the debug output happy
-//    for (llvm::Value const* value : inst.operand_values()) {
-//        operands.push_back(EqualityFoo(value));
-//    }
-    
     //iterate through all instructions of it till we find a return statement
     for (auto& iter_inst: *end_block) {
         if (ReturnInst const* ret_inst = dyn_cast<ReturnInst>(&iter_inst)) {
@@ -106,7 +101,6 @@ void NormalizedConjunction::applyCallInst(Instruction const& inst, BasicBlock co
             }
         }
     }
-//    debug_output(inst, operands);
 }
 
 void NormalizedConjunction::applyReturnInst(Instruction const& inst) {
