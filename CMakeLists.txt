@@ -160,6 +160,19 @@ target_link_libraries(normalized_conjunction_test
    ${LLVM_AVAILABLE_LIBS}
 )
 
+add_llvm_executable(affine_relation_test
+   test/affine_relation_test.cpp
+   ${PAIN_HEADERS}
+   ${PAIN_SOURCES}
+   DEPENDS
+   irgen
+   intrinsics_gen
+)
+
+target_link_libraries(affine_relation_test
+   ${LLVM_AVAILABLE_LIBS}
+)
+
 add_llvm_executable(matrix_test
    test/matrix_test.cpp
    ${PAIN_HEADERS}
@@ -182,6 +195,10 @@ add_test(NAME simpleIntervalTest
 
 add_test(NAME normalizedConjunctionTest
    COMMAND normalized_conjunction_test
+)
+
+add_test(NAME affineRelationTest
+   COMMAND affine_relation_test
 )
 
 add_test(NAME matrixTest
