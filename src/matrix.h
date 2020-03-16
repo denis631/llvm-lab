@@ -396,9 +396,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> const& matrix) {
         for (int column = 0; column < matrix.getWidth(); column++) {
             if constexpr (std::is_floating_point_v<T>) {
                 if (column == matrix.getWidth() - 1) {
-                    os << llvm::format("%.f", matrix.value(row,column));
+                    os << llvm::format("%g", matrix.value(row,column));
                 } else {
-                    os << llvm::format("%-6.f", matrix.value(row,column));
+                    os << llvm::format("%-6g", matrix.value(row,column));
                 }
             } else {
                 if (column == matrix.getWidth() - 1) {
