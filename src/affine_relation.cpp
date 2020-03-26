@@ -195,6 +195,8 @@ void AffineRelation::affineAssignment(Value const* xi, T a, Value const* xj, T b
 }
 
 void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
+    if (index.count(xi) == 0) return;
+
     Matrix<T> T0 = Matrix<T>(getNumberOfVariables() + 1);
     Matrix<T> T1 = Matrix<T>(getNumberOfVariables() + 1);
 
@@ -281,7 +283,7 @@ void AffineRelation::Mul(Instruction const& inst) {
 
 // MARK: - Helpers
 
-unordered_map<Value const*, int> createVariableIndexMap_impl(Function const& func, int& count, set<Function const*> visited_funcs) {
+unordered_map<Value const*, int> createVariableIndexMap_impl(Function const& func, int& count, set<Function const*>& visited_funcs) {
     unordered_map<Value const*, int> map;
     visited_funcs.insert(&func);
     for (BasicBlock const& basic_block: func) {
@@ -296,8 +298,14 @@ unordered_map<Value const*, int> createVariableIndexMap_impl(Function const& fun
                     continue;
                 }
                 if (visited_funcs.count(callee_func) == 0) {
+                    for (Argument const& arg: callee_func->args()) {
+                        if (isa<IntegerType>(arg.getType())) {
+                            count++;
+                            map[&arg] = count;
+                        }
+                    }
                     unordered_map<Value const*, int> callee_map = createVariableIndexMap_impl(*callee_func, count, visited_funcs);
-                    map.insert(callee_map.begin(), callee_map.end());
+                    map.merge(callee_map);
                 }
             } 
         }
@@ -307,7 +315,8 @@ unordered_map<Value const*, int> createVariableIndexMap_impl(Function const& fun
 
 unordered_map<Value const*, int> AffineRelation::createVariableIndexMap(Function const& func) {
     int count = 0;
-    return createVariableIndexMap_impl(func, count, {});
+    set<Function const*> visited_funcs = {};
+    return createVariableIndexMap_impl(func, count, visited_funcs);
 }
 
 // MARK: - debug output
@@ -341,7 +350,7 @@ raw_ostream& operator<<(raw_ostream& os, AffineRelation const& relation) {
     for (auto m: relation.basis) {
         os << left_justify("", 8);
         for (int i = 1; i <= int(relation.index.size()); i++) {
-            auto val = reversed[i];
+            auto val = reversed.at(i);
             if (val->hasName()) {
                 os << left_justify(val->getName(), 6);
             } else {
