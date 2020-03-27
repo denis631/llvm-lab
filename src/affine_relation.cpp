@@ -94,6 +94,8 @@ void AffineRelation::applyReturnInst(Instruction const& inst) {
         } else {
             affineAssignment(&inst, 1, ret_val, 0);
         }
+    } else {
+        nonDeterminsticAssignment(&inst);
     }
 }
 
