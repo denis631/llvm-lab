@@ -31,6 +31,8 @@ AffineRelation::AffineRelation(Function const* callee_func, AffineRelation const
             } else {
                 affineAssignment(&arg, 1, value, 0);
             }
+        } else {
+            nonDeterminsticAssignment(&arg);
         }
     }
     isBottom = basis.empty();
@@ -77,7 +79,6 @@ void AffineRelation::applyCallInst(Instruction const& inst, BasicBlock const* en
                 affineAssignment(&inst, 1, ret_val, 0);
             } else {
                 dbgs(4) << "      Return not evaluated, setting to bottom\n";
-                // TODO: What should we do here
             }
         }
     }
@@ -160,7 +161,7 @@ bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
     Matrix<T> combined = Matrix<T>(vectors).transpose();
     Matrix<T> result = Matrix<T>::span(combined);
 
-    basis = result.reshapeColumns(basis.front().getHeight(), basis.front().getHeight());
+    basis = result.reshapeColumns(basis.front().getHeight(), basis.front().getWidth());
     // FIXME: figure out a better way to detect changes
     return before != basis;
 }
@@ -206,10 +207,19 @@ void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
     T1(index.at(xi),index.at(xi)) = 0;
     T1(0,index.at(xi)) = 1;
 
-    for (Matrix<T> matrix: basis) {
-        // FIXME: span({T0,T1}) or even leastUpperBound
-        matrix *= T0;
-        matrix *= T1;
+    vector<vector<T>> assignment_vectors;
+    assignment_vectors.push_back(T0.toVector());
+    assignment_vectors.push_back(T1.toVector());
+
+    Matrix<T> combined = Matrix<T>(assignment_vectors).transpose();
+    Matrix<T> result = Matrix<T>::span(combined);
+
+    vector<Matrix<T>> span = result.reshapeColumns(T0.getHeight(), T0.getWidth());
+
+    for (Matrix<T>& matrix_state: basis) {
+        for (Matrix<T> const& matrix_assignment: span) {
+            matrix_state *= matrix_assignment;
+        }
     }
 }
 
