@@ -6,7 +6,9 @@
 #include <set>
 
 using namespace llvm;
-using namespace std;
+using std::vector;
+using std::unordered_map;
+using std::set;
 
 namespace pcpo {
 

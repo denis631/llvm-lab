@@ -5,14 +5,12 @@
 #include <vector>
 #include <type_traits>
 
-using namespace std;
-
 namespace pcpo {
 
 /// Matrix. Row and column are indexed beginning at 0
 template<typename T> class Matrix {
 protected:
-    vector<vector<T>> vectors;
+    std::vector<std::vector<T>> vectors;
     int width;
     int height;
 
@@ -27,7 +25,7 @@ public:
         this->height = height;
         this->vectors.reserve(width);
         for (int i = 0; i < height; i++) {
-            vector<T> vector(width,value);
+            std::vector<T> vector(width,value);
             vectors.push_back(vector);
         }
     };
@@ -47,7 +45,7 @@ public:
         this->height = eye;
         this->vectors.reserve(width);
         for (int i = 0; i < height; i++) {
-            vector<T> vector(width,0);
+            std::vector<T> vector(width,0);
             vector[i] = 1;
             vectors.push_back(vector);
         }
@@ -55,8 +53,8 @@ public:
 
     /// Creates a matrix from a 2D vector
     /// @param vectors 2D vector containing columns with rows
-    Matrix(vector<vector<T>> const &vectors) {
-        assert(all_of(vectors.begin(), vectors.end(), [&vectors](vector<T> vec){ return vec.size() == vectors.front().size(); }));
+    Matrix(std::vector<std::vector<T>> const &vectors) {
+        assert(all_of(vectors.begin(), vectors.end(), [&vectors](std::vector<T> vec){ return vec.size() == vectors.front().size(); }));
         this->width = vectors.empty() ? 0 : vectors.front().size();
         this->height = vectors.size();
         this->vectors = vectors;
@@ -64,19 +62,19 @@ public:
 
     /// Creates a vector from a std::vector
     /// @param vector the vector
-    Matrix(vector<T> const &vector) {
+    Matrix(std::vector<T> const &vector) {
         std::vector<std::vector<T>> vectors = {vector};
         this->width = vector.size();
         this->height = vector.empty() ? 0 : 1;
         this->vectors = vectors;
     };
 
-    Matrix(vector<T> const &values, int rows, int columns) {
+    Matrix(std::vector<T> const &values, int rows, int columns) {
         assert(int(values.size()) == rows * columns);
-        vector<vector<T>> result;
+        std::vector<std::vector<T>> result;
         result.reserve(rows);
         for (int row = 0; row < rows; row++) {
-            vector<T> rowVector;
+            std::vector<T> rowVector;
             rowVector.reserve(columns);
             for (int column = 0; column < columns; column++) {
                 rowVector.push_back(values[row * rows + column]);
@@ -153,7 +151,7 @@ public:
 
     /// Basis of the linear span of the column vectors
     static Matrix<T> span(Matrix<T> const& matrix) {
-        vector<vector<T>> rows;
+        std::vector<std::vector<T>> rows;
         Matrix<T> te = matrix.transpose().echelonForm();
         int rank = te.getRank();
         rows.reserve(rank);
@@ -168,7 +166,7 @@ public:
 
     /// Converts the matrix to a 1D Vector by stacking the column vectors
     std::vector<T> toVector() const {
-        vector<T> result;
+        std::vector<T> result;
         result.reserve(getWidth() * getHeight());
         for (int column = 0; column < getWidth(); column++) {
             for (int row = 0; row < getHeight(); row++) {
@@ -188,8 +186,8 @@ public:
         return Matrix(t.vectors.front(), rows, columns).transpose();
     };
 
-    vector<Matrix<T>> reshapeColumns(int height, int width) const {
-        vector<Matrix<T>> result;
+    std::vector<Matrix<T>> reshapeColumns(int height, int width) const {
+        std::vector<Matrix<T>> result;
         for (int c = 0; c < getWidth(); c++) {
             result.push_back(Matrix(column(c), height, width).transpose());
         }
@@ -215,29 +213,29 @@ public:
 
     /// Returns a vector with the elements of the row at index i. The returned row can be modified.
     /// @param i Index of the row to return.
-    vector<T>& row(int i) {
+    std::vector<T>& row(int i) {
         assert(i < getHeight());
         return vectors[i];
     };
 
-    vector<T> row(int i) const {
+    std::vector<T> row(int i) const {
         assert(i < getHeight());
         return vectors[i];
     };
 
     /// Returns the column at index i. The returned column cannot be modified.
     /// @param i Index of the column to return
-    vector<T> column(int i) const {
+    std::vector<T> column(int i) const {
         assert(i < getWidth());
-        vector<T> row;
+        std::vector<T> row;
         row.reserve(width);
-        for (vector<T> const& x : vectors) {
+        for (std::vector<T> const& x : vectors) {
             row.push_back(x[i]);
         }
         return row;
     }
 
-    void setColumn(vector<T> const& vector, int column) {
+    void setColumn(std::vector<T> const& vector, int column) {
         assert(int(vector.size()) == height);
         for (int row = 0; row < height; row++) {
             value(row,column) = vector[row];

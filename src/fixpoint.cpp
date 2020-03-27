@@ -21,7 +21,9 @@
 namespace pcpo {
 
 using namespace llvm;
-using namespace std;
+using std::vector;
+using std::pair;
+using std::unordered_map;
 
 static llvm::RegisterPass<AbstractInterpretationPass> Y("painpass", "AbstractInterpretation Pass");
 
@@ -271,7 +273,7 @@ void executeFixpointAlgorithm(Module const& M) {
                     }
 
                     //Getting the last block
-                    BasicBlock const* end_block = &*prev(callee_func->end());
+                    BasicBlock const* end_block = &*std::prev(callee_func->end());
                     NodeKey end_element = {new_callstring, end_block};
                     state_new.applyCallInst(inst, end_block, nodes[end_element].state);
 
