@@ -247,6 +247,7 @@ set(SAMPLES
   while-2
   while-bigger-steps
   while-neg
+  example-1
 )
 
 # Older CMake version do not support list transformations
