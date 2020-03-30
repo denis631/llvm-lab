@@ -553,19 +553,37 @@ void NormalizedConjunction::Mul(Instruction const& inst) {
     // [xi := a * xj]
     } else if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
         auto a = dyn_cast<ConstantInt>(op1);
-        return linearAssignment(&inst, a->getSExtValue(), op2, 0);
+        int64_t a_val = a->getSExtValue();
+        if (a_val == 0) {
+            return linearAssignment(&inst, 1, nullptr, 0);
+        } else {
+            return linearAssignment(&inst, a_val, op2, 0);
+        }
     // [xi := xj * a]
     } else if (isa<ConstantInt>(op2) && isa<Value>(op1)) {
         auto a = dyn_cast<ConstantInt>(op2);
-        return linearAssignment(&inst, a->getSExtValue(), op1, 0);
+        int64_t a_val = a->getSExtValue();
+        if (a_val == 0) {
+            return linearAssignment(&inst, 1, nullptr, 0);
+        } else {
+            return linearAssignment(&inst, a_val, op2, 0);
+        }
     // [xi := xj * xk]
     } else if (isa<Value>(op1) && isa<Value>(op2)) {
         // [xi := aj * xk]
         if (get(op1).isConstant()) {
-            return linearAssignment(&inst, get(op1).b, op2, 0);
+            if (get(op1).b == 0) {
+                return linearAssignment(&inst, 1, nullptr, 0);
+            } else {
+                return linearAssignment(&inst, get(op1).b, op2, 0);
+            }
         // [xi := xj * ak]
         } else if (get(op2).isConstant()) {
-            return linearAssignment(&inst, get(op1).b, op1, 0);
+            if (get(op2).b == 0) {
+                return linearAssignment(&inst, 1, nullptr, 0);
+            } else {
+                return linearAssignment(&inst, get(op2).b, op1, 0);
+            }
         // [xi := xj * xk]
         } else {
             return nonDeterminsticAssignment(&inst);
