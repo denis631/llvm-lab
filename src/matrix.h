@@ -150,9 +150,11 @@ public:
     }
 
     /// Basis of the linear span of the column vectors
-    static Matrix<T> span(Matrix<T> const& matrix) {
+    static Matrix<T> span(Matrix<T> const& matrix, bool transposed = false) {
         std::vector<std::vector<T>> rows;
-        Matrix<T> te = matrix.transpose().echelonForm();
+        // if matrix is already transposed don't do it again
+        Matrix<T> t = transposed ? matrix : matrix.transpose();
+        Matrix<T> te = t.echelonForm();
         int rank = te.getRank();
         rows.reserve(rank);
         for (int row = 0; row < rank; row++) {

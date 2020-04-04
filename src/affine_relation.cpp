@@ -161,8 +161,8 @@ bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
         vectors.push_back(m.toVector());
     }
     // FIXME: i think this is transposing it twice. Maybe create a fast path for this kind of thing.
-    Matrix<T> combined = Matrix<T>(vectors).transpose();
-    Matrix<T> result = Matrix<T>::span(combined);
+    Matrix<T> combined = Matrix<T>(vectors);
+    Matrix<T> result = Matrix<T>::span(combined, true);
 
     basis = result.reshapeColumns(basis.front().getHeight(), basis.front().getWidth());
     // FIXME: figure out a better way to detect changes
@@ -182,8 +182,8 @@ void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const
     }
 
     // FIXME: this seems quite inefficient
-    Matrix<T> vector = Matrix(Wr.toVector()).transpose();
-    Matrix<T> vectorSpan = Matrix<T>::span(vector);
+    Matrix<T> vector = Matrix(Wr.toVector());
+    Matrix<T> vectorSpan = Matrix<T>::span(vector, true);
     Wr = vectorSpan.reshape(Wr.getHeight(), Wr.getWidth());
 
     for (Matrix<T>& matrix: basis) {
@@ -217,8 +217,8 @@ void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
     assignment_vectors.push_back(T0.toVector());
     assignment_vectors.push_back(T1.toVector());
 
-    Matrix<T> combined = Matrix<T>(assignment_vectors).transpose();
-    Matrix<T> result = Matrix<T>::span(combined);
+    Matrix<T> combined = Matrix<T>(assignment_vectors);
+    Matrix<T> result = Matrix<T>::span(combined, true);
 
     vector<Matrix<T>> span = result.reshapeColumns(T0.getHeight(), T0.getWidth());
 
