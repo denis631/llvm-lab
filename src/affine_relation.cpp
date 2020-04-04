@@ -134,7 +134,6 @@ bool AffineRelation::merge(Merge_op::Type op, AffineRelation const& other) {
     if (other.isBottom) {
         return false;
     } else if (isBottom) {
-        // FIXME: is this correct?
         basis = other.basis;
         index = other.index;
         isBottom = false;
@@ -172,6 +171,7 @@ bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
 
 // MARK: - Assignments
 
+// xi = a1x1 + ... + anxn + a0
 void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const*,T> relations, T constant) {
     Matrix<T> Wr = Matrix<T>(getNumberOfVariables() + 1);
     Wr(index.at(xi),index.at(xi)) = 0;
@@ -191,6 +191,7 @@ void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const
     }
 }
 
+// xi = a * xj + b
 void AffineRelation::affineAssignment(Value const* xi, T a, Value const* xj, T b) {
     if (xj == nullptr) {
         affineAssignment(xi, {}, b);
@@ -199,6 +200,7 @@ void AffineRelation::affineAssignment(Value const* xi, T a, Value const* xj, T b
     }
 }
 
+// xi = ?
 void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
     if (index.count(xi) == 0) return;
 
