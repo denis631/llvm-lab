@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "../src/matrix.h"
+#include "../src/simple_matrix.h"
 
 using namespace std;
 using namespace pcpo;
@@ -24,6 +24,11 @@ public:
     static bool runTestRank2();
     static bool runTestRank3();
     static bool runTestSpan1();
+    static bool runTestNull1();
+    static bool runTestNull2();
+    static bool runTestNull3();
+    static bool runTestNull4();
+    static bool runTestNull5();
 };
 
 template <typename T>
@@ -78,11 +83,11 @@ bool MatrixTest<T>::runTestMul2() {
     };
 
     std::vector<std::vector<T>> expected = {
-        {1519,87,132,87},
-        {1798,139,144,114},
-        {2077,191,156,141},
-        {2356,243,168,168},
-        {2347,295,-132,339}
+        {1519,98,132,87},
+        {1798,151,144,114},
+        {2077,204,156,141},
+        {2356,257,168,168},
+        {2347,286,-132,339}
     };
 
     auto actual = Matrix(a) * Matrix(b);
@@ -127,9 +132,9 @@ bool MatrixTest<T>::runTestTranspose2() {
     bool result = false;
 
     std::vector<std::vector<T>> a = {
-        {1,3},
-        {2,4},
-        {3,5}
+        {1,4},
+        {2,5},
+        {3,6}
     };
 
     std::vector<std::vector<T>> expected = {
@@ -306,9 +311,9 @@ bool MatrixTest<T>::runTestSpan1() {
     };
 
     std::vector<std::vector<T>> expected = {
-        {1,1},
+        {1,0},
         {0,1},
-        {1,0}
+        {1,-1}
     };
 
     auto matrix = Matrix(a);
@@ -320,6 +325,159 @@ bool MatrixTest<T>::runTestSpan1() {
     std::cout << (result? "success" : "failed") << "\n";
     return result;
 }
+
+template<typename T>
+bool MatrixTest<T>::runTestNull1() {
+    std::cout << "Testing nullspace 1: ";
+    bool result = false;
+
+
+    std::vector<std::vector<T>> a = {
+        {1,0,0},
+        {0,1,0},
+        {0,0,1}
+    };
+
+    auto matrix = Matrix(a);
+    auto actual = Matrix<T>::null(matrix);
+    Matrix<T> expected = Matrix<T>({});
+
+    result = actual == Matrix(expected);
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestNull2() {
+    std::cout << "Testing nullspace 2: ";
+    bool result = false;
+
+
+    std::vector<std::vector<T>> a = {
+        {1,-10, -24, -42},
+        {1,-8,-18,-32},
+        {-2,20,51,87}
+    };
+
+    std::vector<std::vector<T>> b = {
+        {2},
+        {2},
+        {1},
+        {-1}
+    };
+
+    auto matrix = Matrix(a);
+    auto actual = Matrix<T>::null(matrix);
+    auto expected = Matrix(b);
+
+    result = actual == Matrix(expected);
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestNull3() {
+    std::cout << "Testing nullspace 3: ";
+    bool result = false;
+
+
+    std::vector<std::vector<T>> a = {
+        {0,1,0,0,-2,-13},
+        {0,0,0,1, 2, 5},
+        {0,0,1,0, 1, 9}
+    };
+
+    std::vector<std::vector<T>> b = {
+        {-1, 0,   0},
+        {0, -2, -13},
+        {0,  1,   9},
+        {0,  2,   5},
+        {0, -1,   0},
+        {0,  0,  -1}
+    };
+
+    auto matrix = Matrix(a);
+    auto actual = Matrix<T>::null(matrix);
+    auto expected = Matrix(b);
+
+    result = actual == Matrix(expected);
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestNull4() {
+    std::cout << "Testing nullspace 4: ";
+    bool result = false;
+
+
+    std::vector<std::vector<T>> a = {
+        {0,0,1,0,0,0,0,-2,-13},
+        {0,0,0,0,0,0,1, 2, 5},
+        {0,0,0,0,0,1,0, 1, 9}
+    };
+
+    std::vector<std::vector<T>> b = {
+        {-1,0,0,0, 0, 0},
+        {0,-1,0,0, 0, 0},
+        {0,0,0,0, -2,-13},
+        {0,0,-1,0, 0, 0},
+        {0,0,0,-1, 0, 0},
+        {0,0,0,0,1,9},
+        {0,0,0,0,2,5},
+        {0,0,0,0,-1, 0},
+        {0,0,0,0, 0, -1}
+    };
+
+    auto matrix = Matrix(a);
+    auto actual = Matrix<T>::null(matrix);
+    auto expected = Matrix(b);
+
+    result = actual == Matrix(expected);
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
+template<typename T>
+bool MatrixTest<T>::runTestNull5() {
+    std::cout << "Testing nullspace 5: ";
+    bool result = false;
+
+
+    std::vector<std::vector<T>> a = {
+        {0,1,1},
+        {0,0,1},
+        {0,0,0}
+    };
+
+    std::vector<std::vector<T>> b = {
+        {0,0,0},
+        {0,0,1},
+        {0,0,0}
+    };
+
+    std::vector<std::vector<T>> ans = {
+        {-1},
+        {0},
+        {0}
+    };
+
+
+    auto A = Matrix(a);
+    auto B = Matrix(b);
+    auto actual = Matrix<T>::null(Matrix(std::vector{A,B}));
+    auto expected = Matrix(ans);
+
+    result = actual == Matrix(expected);
+
+    std::cout << (result? "success" : "failed") << "\n";
+    return result;
+}
+
 
 
 int main() {
@@ -344,6 +502,11 @@ int main() {
              && MatrixTest<double>::runTestRank2()
              && MatrixTest<double>::runTestRank3()
              && MatrixTest<double>::runTestSpan1()
+             && MatrixTest<double>::runTestNull1()
+             && MatrixTest<double>::runTestNull2()
+             && MatrixTest<double>::runTestNull3()
+             && MatrixTest<double>::runTestNull4()
+             && MatrixTest<double>::runTestNull5()
     );
 };
 

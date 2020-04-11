@@ -16,9 +16,9 @@ struct hash<tuple<T...>> {
     }
 };
 
-template <typename T, typename U>
-struct hash<pair<T, U>> {
-    size_t operator()(pair<T, U> const& in) const {
+template <typename T>
+struct hash<pair<T,T>> {
+    size_t operator()(pair<int,int> const& in) const {
         return llvm::hash_value(in);
     }
 };

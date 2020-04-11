@@ -105,7 +105,7 @@ set(PAIN_SOURCES
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
   src/linear_equality.cpp
-  src/affine_relation.cpp
+  src/linear_subspace.cpp
 )
 
 set(PAIN_HEADERS
@@ -118,8 +118,9 @@ set(PAIN_HEADERS
   src/global.h
   src/abstract_state.h
   src/hash_utils.h
-  src/affine_relation.h
-  src/matrix.h
+  src/linear_subspace.h
+  src/simple_matrix.h
+  src/sparse_matrix.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
@@ -133,6 +134,10 @@ add_llvm_library(llvm-pain MODULE
   PLUGIN_TOOL
   opt
 )
+
+#
+# Tests
+#
 
 add_llvm_executable(simple_interval_test
    test/simple_interval_test.cpp
@@ -160,8 +165,8 @@ target_link_libraries(normalized_conjunction_test
    ${LLVM_AVAILABLE_LIBS}
 )
 
-add_llvm_executable(affine_relation_test
-   test/affine_relation_test.cpp
+add_llvm_executable(linear_subspace_test
+   test/linear_subspace_test.cpp
    ${PAIN_HEADERS}
    ${PAIN_SOURCES}
    DEPENDS
@@ -169,17 +174,27 @@ add_llvm_executable(affine_relation_test
    intrinsics_gen
 )
 
-target_link_libraries(affine_relation_test
+target_link_libraries(linear_subspace_test
    ${LLVM_AVAILABLE_LIBS}
 )
 
-add_llvm_executable(matrix_test
-   test/matrix_test.cpp
+add_llvm_executable(simple_matrix_test
+   test/simple_matrix_test.cpp
    ${PAIN_HEADERS}
    ${PAIN_SOURCES}
 )
 
-target_link_libraries(matrix_test
+target_link_libraries(simple_matrix_test
+   ${LLVM_AVAILABLE_LIBS}
+)
+
+add_llvm_executable(sparse_matrix_test
+   test/sparse_matrix_test.cpp
+   ${PAIN_HEADERS}
+   ${PAIN_SOURCES}
+)
+
+target_link_libraries(sparse_matrix_test
    ${LLVM_AVAILABLE_LIBS}
 )
 
@@ -198,12 +213,20 @@ add_test(NAME normalizedConjunctionTest
 )
 
 add_test(NAME affineRelationTest
-   COMMAND affine_relation_test
+   COMMAND linear_subspace_test
 )
 
-add_test(NAME matrixTest
-   COMMAND matrix_test
+add_test(NAME simpleMatrixTest
+   COMMAND simple_matrix_test
 )
+
+add_test(NAME sparseMatrixTest
+   COMMAND sparse_matrix_test
+)
+
+#
+# Samples
+#
 
 set(SAMPLES
   add-1-float
@@ -248,6 +271,10 @@ set(SAMPLES
   while-bigger-steps
   while-neg
   example-1
+  A
+  B
+  C
+  D
 )
 
 # Older CMake version do not support list transformations

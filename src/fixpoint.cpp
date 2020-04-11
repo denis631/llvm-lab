@@ -11,7 +11,7 @@
 #include "value_set.h"
 #include "simple_interval.h"
 #include "normalized_conjunction.h"
-#include "affine_relation.h"
+#include "linear_subspace.h"
 
 #include "fixpoint_widening.cpp"
 #include "hash_utils.h"
@@ -352,7 +352,7 @@ bool AbstractInterpretationPass::runOnModule(llvm::Module& M) {
 //     Use either the standard fixpoint algorithm or the version with widening
 //    executeFixpointAlgorithm<AbstractState>(M);
 //     executeFixpointAlgorithm<NormalizedConjunction>(M);
-    executeFixpointAlgorithm<AffineRelation>(M);
+    executeFixpointAlgorithm<LinearSubspace>(M);
 //    executeFixpointAlgorithmWidening<AbstractState>(M);
 
     // We never change anything

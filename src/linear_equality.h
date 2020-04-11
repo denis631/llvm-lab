@@ -55,6 +55,7 @@ public:
     };
     
     bool isConstant() const { return x == nullptr; };
+    bool isTrivial() const { return x == y; };
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, LinearEquality a);

@@ -1,5 +1,6 @@
 #pragma once
 #include "llvm/ADT/Hashing.h"
+#include "llvm/IR/CFG.h"
 
 // C++ unordered_maps don't support tuples as keys, which is why one has to define the hash function for said tuple.
 // If weird behaviours are observed, chances are high, that this hash function is not working properly, as we don't know
@@ -14,8 +15,15 @@ namespace std {
       llvm::hash_code hash_code = llvm::hash_combine(std::get<0>(k), std::get<1>(k)); 
       return hash_code; 
     } 
-  }; 
- 
+  };
+
+template <typename T, typename U>
+struct hash<std::pair<T,U>> {
+    std::size_t operator()(const std::pair<T,U> &pair) const {
+        return llvm::hash_combine(pair.first, pair.second);
+    }
+};
+
 }
 
 namespace pcpo {

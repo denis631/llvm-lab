@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <type_traits>
+#include <numeric>
 
 namespace pcpo {
 
@@ -37,6 +38,8 @@ public:
 
     Matrix<T>() = default;
     Matrix(Matrix const& matrix) = default;
+    virtual ~Matrix<T>() = default;
+
 
     /// Creates an identity matrix with dimension eye x eye
     /// @param eye dimension of the matrix
@@ -60,7 +63,7 @@ public:
         this->vectors = vectors;
     };
 
-    /// Creates a vector from a std::vector
+    /// Creates a column vector from a std::vector
     /// @param vector the vector
     Matrix(std::vector<T> const &vector) {
         std::vector<std::vector<T>> vectors = {vector};
@@ -71,20 +74,30 @@ public:
 
     Matrix(std::vector<T> const &values, int rows, int columns) {
         assert(int(values.size()) == rows * columns);
-        std::vector<std::vector<T>> result;
-        result.reserve(rows);
+        vectors.reserve(rows);
         for (int row = 0; row < rows; row++) {
             std::vector<T> rowVector;
             rowVector.reserve(columns);
             for (int column = 0; column < columns; column++) {
                 rowVector.push_back(values[row * rows + column]);
             }
-            result.push_back(rowVector);
+            vectors.push_back(rowVector);
         }
-        this->vectors = result;
         this->width = columns;
         this->height = rows;
     };
+
+    Matrix(std::vector<Matrix> const &vec) {
+        assert(all_of(vec.begin(), vec.end(), [&vec](Matrix m){ return m.getWidth() == vec.front().getWidth(); }));
+        this->height = 0;
+        int size = std::accumulate(vec.begin(), vec.end(), 0, [](int acc, Matrix m){ return acc + m.getHeight(); });
+        vectors.reserve(size);
+        for (auto const &m: vec) {
+            vectors.insert(vectors.end(), m.vectors.begin(), m.vectors.end());
+            this->height += m.height;
+        }
+        this->width = vec.empty() ? 0 : vec.front().width;
+    }
 
     // MARK: - Properties
 
@@ -108,17 +121,30 @@ public:
         return result;
     };
 
+    /// Transposes the matrix in place
+    void transposed() {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                value(j,i) = value(i,j);
+            }
+        }
+    }
+
     /// Transforms the matrix to reduced row echelon form
     Matrix echelonForm() const {
         Matrix result = Matrix(*this);
         int pivot = 0;
         for (int row = 0; row < height; row++) {
-            if (pivot >= width) { return result; }
+            if (pivot >= width) {
+                return result;
+            }
             int i = row;
             while (result.value(i,pivot) == 0) {
                 if (++i >= height) {
                     i = row;
-                    if (++pivot >= width) { return result; }
+                    if (++pivot >= width) {
+                        return result;
+                    }
                 }
             }
             result.swap_rows(i, row);
@@ -164,7 +190,44 @@ public:
     }
 
     /// Computes the null space for the column vectors
-    static Matrix<T> null(Matrix<T> const& matrix);
+    static Matrix<T> null(Matrix<T> const& matrix) {
+        auto rref = matrix.echelonForm();
+        std::vector<int> nonPivotColumns;
+        nonPivotColumns.reserve(matrix.getWidth());
+        int offset = 0;
+
+        for (int row = 0; row < rref.getWidth(); row++) {
+            for (int column = offset; column < rref.getWidth(); column++) {
+                if ((row < rref.getHeight() && rref(row,column) == 0) || row >= rref.getHeight()) {
+                    std::vector<T> vector(rref.getWidth());
+                    vector[column] = -1;
+                    rref.vectors.insert(rref.vectors.begin()+row, vector);
+                    nonPivotColumns.push_back(column);
+                    rref.height += 1;
+                    offset += 1;
+                    row += 1;
+                    if (row > rref.getHeight()) {
+                        break;
+                    }
+                } else if (row < rref.getHeight() && rref(row,column) == 1) {
+                    offset += 1;
+                    break;
+                }
+            }
+        }
+
+        rref.height = rref.getWidth();
+        rref.vectors.erase(rref.vectors.begin() + rref.getWidth(), rref.vectors.end());
+
+        std::vector<std::vector<T>> columns;
+
+        // pick columns for result
+        for (auto column: nonPivotColumns) {
+            columns.push_back(rref.column(column));
+        }
+
+        return Matrix(columns).transpose();
+    }
 
     /// Converts the matrix to a 1D Vector by stacking the column vectors
     std::vector<T> toVector() const {
@@ -183,7 +246,6 @@ public:
     /// @param columns number of columns
     Matrix<T> reshape(int rows, int columns) const {
         assert(rows > 0 && columns > 0);
-        // FIXME: Performance
         Matrix<T> t = transpose();
         return Matrix(t.vectors.front(), rows, columns).transpose();
     };
@@ -212,6 +274,13 @@ public:
         return vectors[row][column];
     };
 
+    /// Sets the value at row i and column j
+    /// @param row
+    /// @param column
+    /// @param value
+    void setValue(int row, int column, T val) {
+        value(row,column) = val;
+    }
 
     /// Returns a vector with the elements of the row at index i. The returned row can be modified.
     /// @param i Index of the row to return.
@@ -313,10 +382,10 @@ public:
     };
 
     bool operator==(Matrix<T> const& rhs) const {
-        return rhs.vectors == rhs.vectors && width == rhs.width && height == rhs.height;
+        return vectors == rhs.vectors && width == rhs.width && height == rhs.height;
     };
 
-    void print() const {
+    virtual void print() const {
         dbgs(4) << *this;
     }
 
@@ -410,6 +479,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os, Matrix<T> const& matrix) {
         }
         os << " ]\n";
     }
+
+    if (matrix.getWidth() == 0 && matrix.getHeight() == 0) {
+        os << "[]\n";
+    }
+
     return os;
 };
 

@@ -645,14 +645,18 @@ void NormalizedConjunction::printIncoming(BasicBlock const& bb, raw_ostream& out
     }
 }
 
+
 void NormalizedConjunction::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation = 0) const {
+    int nrOfNonTrivialEquations = 0;
     for (auto const& i: values) {
         if (ReturnInst::classof(i.first)) {
             out.indent(indentation) << "<ret> = " << i.second << '\n';
         } else {
             out.indent(indentation) << '%' << i.first->getName() << " = " << i.second << '\n';
         }
+        nrOfNonTrivialEquations += !i.second.isTrivial();
     }
+    out.indent(indentation) << nrOfNonTrivialEquations << " non-trivial equations\n";
 }
 
 } /* end of namespace pcpo */

@@ -1,4 +1,4 @@
-#include "affine_relation.h"
+#include "linear_subspace.h"
 #include "global.h"
 
 #include "llvm/IR/CFG.h"
@@ -14,13 +14,13 @@ namespace pcpo {
 
 // MARK: - Initializers
 
-AffineRelation::AffineRelation(Function const& func) {
+LinearSubspace::LinearSubspace(Function const& func) {
     index = createVariableIndexMap(func);
-    basis = {Matrix<T>(getNumberOfVariables() + 1)};
-    isBottom = basis.empty();
+    basis = {MatrixType(getNumberOfVariables() + 1)};
+    isBottom = true;
 }
 
-AffineRelation::AffineRelation(Function const* callee_func, AffineRelation const& state, CallInst const* call) {
+LinearSubspace::LinearSubspace(Function const* callee_func, LinearSubspace const& state, CallInst const* call) {
     assert(callee_func->arg_size() == call->getNumArgOperands());
     index = state.index;
     basis = state.basis;
@@ -33,16 +33,14 @@ AffineRelation::AffineRelation(Function const* callee_func, AffineRelation const
             } else {
                 affineAssignment(&arg, 1, value, 0);
             }
-        } else {
-            nonDeterminsticAssignment(&arg);
         }
     }
-    isBottom = basis.empty();
+    isBottom = true;
 }
 
 // MARK: - AbstractState Interface
 
-void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> const& pred_values, Instruction const& phi) {
+void LinearSubspace::applyPHINode(BasicBlock const& bb, vector<LinearSubspace> const& pred_values, Instruction const& phi) {
     PHINode const* phiNode = dyn_cast<PHINode>(&phi);
     int i = 0;
 
@@ -51,11 +49,11 @@ void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> c
         auto& incoming_state = pred_values[i];
         // Predecessor states should have been merged before. This is just bookkeeping.
         if (llvm::ConstantInt const* c = llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
-            AffineRelation acc = *this;
+            LinearSubspace acc = *this;
             acc.affineAssignment(&phi, 1, nullptr, c->getSExtValue());
             merge(Merge_op::UPPER_BOUND, acc);
         } else {
-            AffineRelation acc = *this;
+            LinearSubspace acc = *this;
             for (auto m: incoming_state.basis) {
                 auto val = m.column(index.at(&incoming_value));
                 acc.affineAssignment(&phi, 1, &incoming_value, 0);
@@ -66,27 +64,34 @@ void AffineRelation::applyPHINode(BasicBlock const& bb, vector<AffineRelation> c
     }
 }
 
-void AffineRelation::applyCallInst(Instruction const& inst, BasicBlock const* end_block, AffineRelation const& callee_state) {
+void LinearSubspace::applyCallInst(Instruction const& inst, BasicBlock const* end_block, LinearSubspace const& callee_state) {
     // State changes from function call were not merged with the oredecessors.
     // So we have to do more than just bookkeeping.
 
     //iterate through all instructions of it till we find a return statement
-    for (Instruction const& iter_inst: *end_block) {
-        if (ReturnInst const* ret_inst = llvm::dyn_cast<llvm::ReturnInst>(&iter_inst)) {
-            Value const* ret_val = ret_inst->getReturnValue();
-            dbgs(4) << "      Found return instruction\n";
 
-            if (callee_state.index.find(ret_val) != callee_state.index.end()) {
-                dbgs(4) << "      Return evaluated, merging parameters\n";
-                affineAssignment(&inst, 1, ret_val, 0);
-            } else {
-                dbgs(4) << "      Return not evaluated, setting to bottom\n";
-            }
-        }
+    if (callee_state.isBottom) {
+        isBottom = true;
+    } else {
+        basis = callee_state.basis;
     }
+
+//    for (Instruction const& iter_inst: *end_block) {
+//        if (ReturnInst const* ret_inst = llvm::dyn_cast<llvm::ReturnInst>(&iter_inst)) {
+//            Value const* ret_val = ret_inst->getReturnValue();
+//            dbgs(4) << "      Found return instruction\n";
+//
+//            if (callee_state.index.find(ret_val) != callee_state.index.end()) {
+//                dbgs(4) << "      Return evaluated, merging parameters\n";
+//                affineAssignment(&inst, 1, ret_val, 0);
+//            } else {
+//                dbgs(4) << "      Return not evaluated, setting to bottom\n";
+//            }
+//        }
+//    }
 }
 
-void AffineRelation::applyReturnInst(Instruction const& inst) {
+void LinearSubspace::applyReturnInst(Instruction const& inst) {
     Value const* ret_val = dyn_cast<llvm::ReturnInst>(&inst)->getReturnValue();
     if (ret_val && ret_val->getType()->isIntegerTy()) {
         if (ConstantInt const* c = dyn_cast<ConstantInt>(ret_val)) {
@@ -99,7 +104,7 @@ void AffineRelation::applyReturnInst(Instruction const& inst) {
     }
 }
 
-void AffineRelation::applyDefault(Instruction const& inst) {
+void LinearSubspace::applyDefault(Instruction const& inst) {
     if (inst.getNumOperands() != 2) return nonDeterminsticAssignment(&inst);
 
     // We only deal with integer types
@@ -130,41 +135,49 @@ void AffineRelation::applyDefault(Instruction const& inst) {
     }
 }
 
-bool AffineRelation::merge(Merge_op::Type op, AffineRelation const& other) {
-    if (other.isBottom) {
-        return false;
-    } else if (isBottom) {
+bool LinearSubspace::merge(Merge_op::Type op, LinearSubspace const& other) {
+    index.insert(other.index.begin(), other.index.end());
+
+    if (isBottom && other.isBottom) {
         basis = other.basis;
-        index = other.index;
+        return false;
+    } else if (isBottom && !other.isBottom) {
+        basis = other.basis;
         isBottom = false;
         return true;
-    }
-
-    switch (op) {
-        case Merge_op::UPPER_BOUND: return leastUpperBound(other);
-        default: abort();
+    } else if (!isBottom && other.isBottom) {
+        return false;
+    } else if (!isBottom && !other.isBottom) {
+        switch (op) {
+            case Merge_op::UPPER_BOUND: return leastUpperBound(other);
+            default: abort();
+        }
     }
 }
 
 // MARK: - Lattice Operations
 
-bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
+bool LinearSubspace::leastUpperBound(LinearSubspace const& rhs) {
     assert(getNumberOfVariables() == rhs.getNumberOfVariables());
-    vector<Matrix<T>> before = basis;
+    vector<MatrixType> before = basis;
     vector<vector<T>> vectors;
     vectors.reserve(basis.size() + rhs.basis.size());
-    for (Matrix<T> m: basis) {
+    for (MatrixType m: basis) {
         vectors.push_back(m.toVector());
     }
 
-    for (Matrix<T> m: rhs.basis) {
+    for (MatrixType m: rhs.basis) {
         vectors.push_back(m.toVector());
     }
-    // FIXME: i think this is transposing it twice. Maybe create a fast path for this kind of thing.
-    Matrix<T> combined = Matrix<T>(vectors);
-    Matrix<T> result = Matrix<T>::span(combined, true);
 
-    basis = result.reshapeColumns(basis.front().getHeight(), basis.front().getWidth());
+    if (vectors.empty()) {
+        return false;
+    }
+
+    MatrixType combined = MatrixType(vectors);
+    MatrixType result = MatrixType::span(combined, true);
+
+    basis = result.reshapeColumns(getHeight(), getWidth());
     // FIXME: figure out a better way to detect changes
     return before != basis;
 }
@@ -172,27 +185,32 @@ bool AffineRelation::leastUpperBound(AffineRelation const& rhs) {
 // MARK: - Assignments
 
 // xi = a1x1 + ... + anxn + a0
-void AffineRelation::affineAssignment(Value const* xi, unordered_map<Value const*,T> relations, T constant) {
-    Matrix<T> Wr = Matrix<T>(getNumberOfVariables() + 1);
-    Wr(index.at(xi),index.at(xi)) = 0;
-    Wr(0,index.at(xi)) = constant;
+void LinearSubspace::affineAssignment(Value const* xi, unordered_map<Value const*,T> relations, T constant) {
+    MatrixType Wr = MatrixType(getNumberOfVariables() + 1);
+    Wr.setValue(index.at(xi),index.at(xi), 0);
+    Wr.setValue(0,index.at(xi), constant);
 
     for (auto [variable, factor]: relations) {
-        Wr(index.at(variable),index.at(xi)) = factor;
+        Wr.setValue(index.at(variable),index.at(xi), factor);
     }
 
     // FIXME: this seems quite inefficient
-    Matrix<T> vector = Matrix(Wr.toVector());
-    Matrix<T> vectorSpan = Matrix<T>::span(vector, true);
+    MatrixType vector = MatrixType(Wr.toVector());
+    MatrixType vectorSpan = MatrixType::span(vector, true);
     Wr = vectorSpan.reshape(Wr.getHeight(), Wr.getWidth());
 
-    for (Matrix<T>& matrix: basis) {
+
+    if (basis.empty()) {
+        basis.push_back(Wr);
+    }
+
+    for (MatrixType& matrix: basis) {
         matrix *= Wr;
     }
 }
 
 // xi = a * xj + b
-void AffineRelation::affineAssignment(Value const* xi, T a, Value const* xj, T b) {
+void LinearSubspace::affineAssignment(Value const* xi, T a, Value const* xj, T b) {
     if (xj == nullptr) {
         affineAssignment(xi, {}, b);
     } else {
@@ -201,29 +219,34 @@ void AffineRelation::affineAssignment(Value const* xi, T a, Value const* xj, T b
 }
 
 // xi = ?
-void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
+void LinearSubspace::nonDeterminsticAssignment(Value const* xi) {
+    return;
     if (index.count(xi) == 0) return;
 
-    Matrix<T> T0 = Matrix<T>(getNumberOfVariables() + 1);
-    Matrix<T> T1 = Matrix<T>(getNumberOfVariables() + 1);
+    MatrixType T0 = MatrixType(getNumberOfVariables() + 1);
+    MatrixType T1 = MatrixType(getNumberOfVariables() + 1);
 
-    T0(index.at(xi),index.at(xi)) = 0;
-    T0(0,index.at(xi)) = 0;
+    T0.setValue(index.at(xi),index.at(xi), 0);
+    T0.setValue(0,index.at(xi), 0);
 
-    T1(index.at(xi),index.at(xi)) = 0;
-    T1(0,index.at(xi)) = 1;
+    T1.setValue(index.at(xi),index.at(xi), 0);
+    T1.setValue(0,index.at(xi), 1);
 
     vector<vector<T>> assignment_vectors;
     assignment_vectors.push_back(T0.toVector());
     assignment_vectors.push_back(T1.toVector());
 
-    Matrix<T> combined = Matrix<T>(assignment_vectors);
-    Matrix<T> result = Matrix<T>::span(combined, true);
+    MatrixType combined = MatrixType(assignment_vectors);
+    MatrixType result = MatrixType::span(combined, true);
 
-    vector<Matrix<T>> span = result.reshapeColumns(T0.getHeight(), T0.getWidth());
+    vector<MatrixType> span = result.reshapeColumns(T0.getHeight(), T0.getWidth());
 
-    for (Matrix<T>& matrix_state: basis) {
-        for (Matrix<T> const& matrix_assignment: span) {
+    if (basis.empty()) {
+        basis = span;
+    }
+
+    for (MatrixType& matrix_state: basis) {
+        for (MatrixType const& matrix_assignment: span) {
             matrix_state *= matrix_assignment;
         }
     }
@@ -231,7 +254,7 @@ void AffineRelation::nonDeterminsticAssignment(Value const* xi) {
 
 // MARK: - Abstract Operators
 
-void AffineRelation::Add(Instruction const& inst) {
+void LinearSubspace::Add(Instruction const& inst) {
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
 
@@ -253,7 +276,7 @@ void AffineRelation::Add(Instruction const& inst) {
     }
 }
 
-void AffineRelation::Sub(Instruction const& inst) {
+void LinearSubspace::Sub(Instruction const& inst) {
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
 
@@ -275,7 +298,7 @@ void AffineRelation::Sub(Instruction const& inst) {
     }
 }
 
-void AffineRelation::Mul(Instruction const& inst) {
+void LinearSubspace::Mul(Instruction const& inst) {
     auto op1 = inst.getOperand(0);
     auto op2 = inst.getOperand(1);
 
@@ -329,7 +352,7 @@ unordered_map<Value const*, int> createVariableIndexMap_impl(Function const& fun
     return map;
 }
 
-unordered_map<Value const*, int> AffineRelation::createVariableIndexMap(Function const& func) {
+unordered_map<Value const*, int> LinearSubspace::createVariableIndexMap(Function const& func) {
     int count = 0;
     set<Function const*> visited_funcs = {};
     return createVariableIndexMap_impl(func, count, visited_funcs);
@@ -345,20 +368,36 @@ unordered_map<int,Value const*> reverseMap(unordered_map<Value const*, int> cons
     return reversed;
 }
 
-void AffineRelation::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
+void LinearSubspace::print() const {
+    dbgs(3) << *this;
+}
+
+void LinearSubspace::printIncoming(BasicBlock const& bb, raw_ostream& out, int indentation) const {
     out << *this;
 }
 
-void AffineRelation::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
-    out << *this;
+void LinearSubspace::printOutgoing(BasicBlock const& bb, raw_ostream& out, int indentation) const {
+    MatrixType nullspace = MatrixType::null(MatrixType(this->basis));
+
+    auto reversed = reverseMap(index);
+    for (int i = 1; i <= int(index.size()); i++) {
+        auto val = reversed.at(i);
+        if (val->hasName()) {
+            out << left_justify(val->getName(), 6);
+        } else {
+            out << left_justify("<>", 6);
+        }
+    }
+    
+    out << "\n" << nullspace;
 }
 
-void AffineRelation::debug_output(Instruction const& inst, Matrix<T> operands) {
+void LinearSubspace::debug_output(Instruction const& inst, MatrixType operands) {
     dbgs(3) << *this;
 }
 
 
-raw_ostream& operator<<(raw_ostream& os, AffineRelation const& relation) {
+raw_ostream& operator<<(raw_ostream& os, LinearSubspace const& relation) {
     auto reversed = reverseMap(relation.index);
     if (relation.basis.empty()) {
         return os << "[]\n";
