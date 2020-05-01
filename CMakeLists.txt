@@ -212,7 +212,7 @@ add_test(NAME normalizedConjunctionTest
    COMMAND normalized_conjunction_test
 )
 
-add_test(NAME affineRelationTest
+add_test(NAME linearSubspaceTest
    COMMAND linear_subspace_test
 )
 

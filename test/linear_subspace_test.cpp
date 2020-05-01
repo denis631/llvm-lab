@@ -16,6 +16,16 @@ public:
     static bool runTestLeastUpperBound2();
 };
 
+const llvm::Value *x1 = (llvm::Value *) 1;
+const llvm::Value *x2 = (llvm::Value *) 2;
+const llvm::Value *x3 = (llvm::Value *) 3;
+
+const std::unordered_map<llvm::Value const *, int> mock_index = {
+    {x1, 1},
+    {x2, 2},
+    {x3, 3},
+};
+
 bool LinearSubspaceTest::runTestLeastUpperBound1() {
     std::cout << "Testing least upper bound 1: ";
     bool result = false;
@@ -23,10 +33,12 @@ bool LinearSubspaceTest::runTestLeastUpperBound1() {
     LinearSubspace r1 = LinearSubspace();
     r1.isBottom = false;
     r1.basis = {MatrixType(4)};
+    r1.index = mock_index;
 
     LinearSubspace r2 = LinearSubspace();
     r2.isBottom = false;
     r2.basis = {MatrixType(4)};
+    r2.index = mock_index;
 
     LinearSubspace expected = LinearSubspace();
     expected.basis = {MatrixType(4)};
@@ -50,12 +62,14 @@ bool LinearSubspaceTest::runTestLeastUpperBound2() {
     b1.setValue(0,1, 1);
     b1.setValue(2,1, 1);
     r1.basis = {b1};
+    r1.index = mock_index;
 
     LinearSubspace r2 = LinearSubspace();
     r2.isBottom = false;
     MatrixType b2 = MatrixType(4);
     b2.setValue(0,3, 1);
     r2.basis = {b2};
+    r2.index = mock_index;
 
     LinearSubspace expected = LinearSubspace();
     MatrixType e1 =  MatrixType(4);
