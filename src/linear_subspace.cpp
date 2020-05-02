@@ -55,7 +55,6 @@ void LinearSubspace::applyPHINode(BasicBlock const& bb, vector<LinearSubspace> c
         } else {
             LinearSubspace acc = *this;
             for (auto m: incoming_state.basis) {
-                auto val = m.column(index.at(&incoming_value));
                 acc.affineAssignment(&phi, 1, &incoming_value, 0);
             }
             merge(Merge_op::UPPER_BOUND, acc);
@@ -65,30 +64,11 @@ void LinearSubspace::applyPHINode(BasicBlock const& bb, vector<LinearSubspace> c
 }
 
 void LinearSubspace::applyCallInst(Instruction const& inst, BasicBlock const* end_block, LinearSubspace const& callee_state) {
-    // State changes from function call were not merged with the oredecessors.
-    // So we have to do more than just bookkeeping.
-
-    //iterate through all instructions of it till we find a return statement
-
     if (callee_state.isBottom) {
         isBottom = true;
     } else {
         basis = callee_state.basis;
     }
-
-//    for (Instruction const& iter_inst: *end_block) {
-//        if (ReturnInst const* ret_inst = llvm::dyn_cast<llvm::ReturnInst>(&iter_inst)) {
-//            Value const* ret_val = ret_inst->getReturnValue();
-//            dbgs(4) << "      Found return instruction\n";
-//
-//            if (callee_state.index.find(ret_val) != callee_state.index.end()) {
-//                dbgs(4) << "      Return evaluated, merging parameters\n";
-//                affineAssignment(&inst, 1, ret_val, 0);
-//            } else {
-//                dbgs(4) << "      Return not evaluated, setting to bottom\n";
-//            }
-//        }
-//    }
 }
 
 void LinearSubspace::applyReturnInst(Instruction const& inst) {
