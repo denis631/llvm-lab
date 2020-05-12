@@ -1,55 +1,68 @@
-# Program Optimization Lab 2018
+# Program Optimization Lab 202X
 
-Implements an LLVM analysis pass using abstract interpretation.
+Implementing an LLVM analysis framework based upon the Seidl Program Optimization Lecture.
 
 ## Build
 
-Get the LLVM source code from [here](http://releases.llvm.org/download.html). Then get clang as well, into `llvm/tools`. Create a build directory somewhere, initialise CMake, and build. For example
+### Build against a system-wide installed LLVM
+Install the LLVM packages from your distro's package manager, e.g. Ubuntu 20.04:
 
-    # From your llvm-9.0.0-src, or whatever the version is now
-    wget http://releases.llvm.org/9.0.0/llvm-9.0.0.src.tar.xz
-    tar xf llvm-9.0.0.src.tar.xz
+    # install the necessary LLVM packages
+    sudo apt install cmake clang libclang-10-dev llvm-10-dev
+    # now continue by building the project
+    git clone https://versioncontrolseidl.in.tum.de/petter/llvm-abstractinterpretation.git
+    cd llvm-abstractinterpretation
+    mkdir build
+    cd build
+    cmake -G "Unix Makefiles" -DPATH_TO_LLVM=/usr/lib/llvm-10 ..
+    make
+
+You can do this, however the precompiled LLVM binaries come without symbol names, thus debugging
+might be a little harder this way. Alterntively consider the following route:
+
+### Build against custom downloaded LLVM Sources
+Get the LLVM source code from [here](https://releases.llvm.org/download.html). Then get clang as well, into `llvm/tools`. Create a build directory somewhere, initialise CMake, and build. For example
+
+    # From llvm-10.0.0-src, or whatever the version is now
+    wget https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/llvm-10.0.0.src.tar.xz
+    tar xf llvm-10.0.0.src.tar.xz
     # now also download clang
-    cd llvm-9.0.0.src/tools
-    wget http://releases.llvm.org/9.0.0/cfe-9.0.0.src.tar.xz
-    tar xf cfe-9.0.0.src.tar.xz
-    mv cfe-9.0.0.src clang
+    cd llvm-10.0.0.src/tools
+    wget https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang-10.0.0.src.tar.xz
+    tar xf clang-10.0.0.src.tar.xz
+    mv clang-10.0.0.src clang
     cd ../..
     # now continue by building LLVM
     mkdir llvm_build
     cd llvm_build
-    cmake ../llvm-?.?.?-src -DLLVM_TARGETS_TO_BUILD=X86
-    make -j2
+    # important: Don't forget to restrict to X86, otherwise prepare for a day of compiling
+    cmake ../llvm-10.0.0-src -DLLVM_TARGETS_TO_BUILD=X86
+    # 4x parallelized make, which will probably fail due to RAM consumption
+    make -j4
+    # make -j1 in order to catch up, where the parallel make aborted
 
-The parallel make may run out of memory at the end. You can restart it sequentially by issuing another `make -j1`.
+On a 4 core i7-8550U with 16GB RAM this may take up to 3:00h for a sequentially run make ( `make -j1` ) to account for a poor man's RAM equipment. Also, the build will need at least 50GB of disk space, be sure to have enough room...
 
-Now we can initalise the repository.
-
-    cd ..
-    git clone ssh://git@github.com/PUT/THE/CORRECT/REPOSITORY/IN/HERE.git
-    cd PUT/THE/CORRECT/REPOSITORY/IN/HERE
-    python3 init.py
-
-The script should be able to find your LLVM and clang. If it is not, you need to specify them by hand.
-
-At last, let us compile and run the samples.
-
-    python3 run.py --make
 
 If there are errors regarding missing header files, you probably need to rebuild llvm.
 
-## Useful things
+## Author during Bachelor Thesis 2019/20
 
-The `run.py` script contains everything, up to and including the kitchen sink. It can run the samples, build, run the debugger, as well as build and run the tests. Just read its help message to get all the good stuff. I want to highlight the `-n` option, which causes it to just print out the commands it would run. This is great to just copy-paste the relevant ones into your terminal (or IDE).
+* Tim Gymnich
 
-## Authors
+## Authors Lab Course WS 2019/20
+
+* Florian Stamer
+* Dmytro Yakymets
+
+## Authors Lab Course WS 2018/19
 
 * Ramona Brückl
 * Philipp Czerner ([github](https://github.com/suyjuris/), [mail](mailto:philipp.czerner@nicze.de))
 * Tim Gymnich
 * Thomas Frank
 
-### Authors of previous semesters
+## Authors Lab Course SS 2018
 * Julian Erhard
 * Jakob Gottfriedsen
 * Peter Munch

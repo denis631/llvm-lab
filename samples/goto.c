@@ -1,4 +1,4 @@
-int test(){
+int main(){
     int i = 0;
     loop:
     i++;
