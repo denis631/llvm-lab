@@ -12,7 +12,6 @@ Install the LLVM packages from your distro's package manager, e.g. Ubuntu 20.04:
     # now continue by building the project
     git clone https://versioncontrolseidl.in.tum.de/petter/llvm-abstractinterpretation.git
     cd llvm-abstractinterpretation
-    git checkout origin/equalities
     mkdir build
     cd build
     cmake -G "Unix Makefiles" -DPATH_TO_LLVM=/usr/lib/llvm-10 ..
@@ -42,7 +41,7 @@ Get the LLVM source code from [here](https://releases.llvm.org/download.html). T
     make -j4
     # make -j1 in order to catch up, where the parallel make aborted
 
-On a 4 core i7-8550U with 16GB RAM this may take up to 1:15h, with an additional 0:15h for a sequentially run make ( `make -j1` ) to account for a poor man's RAM equipment.
+On a 4 core i7-8550U with 16GB RAM this may take up to 3:00h for a sequentially run make ( `make -j1` ) to account for a poor man's RAM equipment. Also, the build will need at least 50GB of disk space, be sure to have enough room...
 
 
 If there are errors regarding missing header files, you probably need to rebuild llvm.
