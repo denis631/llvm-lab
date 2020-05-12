@@ -149,7 +149,7 @@ add_llvm_executable(simple_interval_test
 )
 
 target_link_libraries(simple_interval_test
-   ${LLVM_AVAILABLE_LIBS}
+   PRIVATE ${LLVM_AVAILABLE_LIBS}
 )
 
 add_llvm_executable(normalized_conjunction_test
@@ -162,7 +162,7 @@ add_llvm_executable(normalized_conjunction_test
 )
 
 target_link_libraries(normalized_conjunction_test
-   ${LLVM_AVAILABLE_LIBS}
+   PRIVATE ${LLVM_AVAILABLE_LIBS}
 )
 
 add_llvm_executable(linear_subspace_test
@@ -175,7 +175,7 @@ add_llvm_executable(linear_subspace_test
 )
 
 target_link_libraries(linear_subspace_test
-   ${LLVM_AVAILABLE_LIBS}
+   PRIVATE ${LLVM_AVAILABLE_LIBS}
 )
 
 add_llvm_executable(simple_matrix_test
@@ -185,7 +185,7 @@ add_llvm_executable(simple_matrix_test
 )
 
 target_link_libraries(simple_matrix_test
-   ${LLVM_AVAILABLE_LIBS}
+   PRIVATE ${LLVM_AVAILABLE_LIBS}
 )
 
 add_llvm_executable(sparse_matrix_test
@@ -195,7 +195,7 @@ add_llvm_executable(sparse_matrix_test
 )
 
 target_link_libraries(sparse_matrix_test
-   ${LLVM_AVAILABLE_LIBS}
+   PRIVATE ${LLVM_AVAILABLE_LIBS}
 )
 
 enable_testing()
