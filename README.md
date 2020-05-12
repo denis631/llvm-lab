@@ -38,10 +38,11 @@ Get the LLVM source code from [here](https://releases.llvm.org/download.html). T
     cd llvm_build
     # important: Don't forget to restrict to X86, otherwise prepare for a day of compiling
     cmake ../llvm-10.0.0-src -DLLVM_TARGETS_TO_BUILD=X86
+    # 4x parallelized make, which will probably fail due to RAM consumption
     make -j4
+    # make -j1 in order to catch up, where the parallel make aborted
 
-On a 4 core i7-8550U this may take up to 3h.
-The parallel make may run out of memory at the end. You can restart it sequentially by issuing another `make -j1`.
+On a 4 core i7-8550U with 16GB RAM this may take up to 1:15h, with an additional 0:15h for a sequentially run make ( `make -j1` ) to account for a poor man's RAM equipment.
 
 
 If there are errors regarding missing header files, you probably need to rebuild llvm.
