@@ -46,9 +46,15 @@ On a 4 core i7-8550U with 16GB RAM this may take up to 3:00h for a sequentially 
 
 If there are errors regarding missing header files, you probably need to rebuild llvm.
 
+# Running the Analyzer
+
+After successfull compilation, you can run your particular analysis on some example target, e.g.:
+
+    $LLVM_BUILD/bin/opt -load build/llvm-pain.so -painpass -S -o /dev/null output/if-then-else-2.ll
+
 # Visualization of Results
 
-There is a plugin for [Visual Studio Code](https://code.visualstudio.com/), that can be obtained from https://versioncontrolseidl.in.tum.de/schwarz/llvm-abstractinterpretation-vscode-plugin . This expects your inferred abstract domain values in a JSON file, which is then connected to a CFG representation and an .ll version of your analysis target.
+There is a plugin for [Visual Studio Code](https://code.visualstudio.com/), that can be obtained from https://versioncontrolseidl.in.tum.de/schwarz/llvm-abstractinterpretation-vscode-plugin . This expects your inferred abstract domain values in a JSON file with extension `$target.out` next to `$target.ll`, which is used to present a CFG representation of your analysis target.
 
 # Authors
 
