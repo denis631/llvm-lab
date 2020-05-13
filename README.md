@@ -46,6 +46,12 @@ On a 4 core i7-8550U with 16GB RAM this may take up to 3:00h for a sequentially 
 
 If there are errors regarding missing header files, you probably need to rebuild llvm.
 
+# Visualization of Results
+
+There is a plugin for [Visual Studio Code](https://code.visualstudio.com/), that can be obtained from https://versioncontrolseidl.in.tum.de/schwarz/llvm-abstractinterpretation-vscode-plugin . This expects your inferred abstract domain values in a JSON file, which is then connected to a CFG representation and an .ll version of your analysis target.
+
+# Authors
+
 ## Author during Bachelor Thesis 2019/20
 
 * Tim Gymnich
