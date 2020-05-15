@@ -56,6 +56,8 @@ After successfull compilation, you can run your particular analysis on some exam
 
 There is a plugin for [Visual Studio Code](https://code.visualstudio.com/), that can be obtained from https://versioncontrolseidl.in.tum.de/schwarz/llvm-abstractinterpretation-vscode-plugin . This expects your inferred abstract domain values in a JSON file with extension `$target.out` next to `$target.ll`, which is used to present a CFG representation of your analysis target.
 
+This is done semi-automatically by specifying the analysis pass parameter `-vo <filename>`. This automatically evaluates the abstract states `printOutgoing(BasicBlock const&,raw_ostream&,indentation)` function on all basic blocks, giving the programmer a way of providing Information about their abstract domain values as key/value pairs.
+
 # Authors
 
 ## Author during Bachelor Thesis 2019/20

@@ -18,9 +18,20 @@
 
 #include "llvm/ADT/PostOrderIterator.h"
 
+#include "llvm/Support/raw_os_ostream.h"
+#include <fstream>
+#include "llvm/Support/CommandLine.h"
+static llvm::cl::opt<std::string> 
+    OutputFilename("vo",
+        llvm::cl::desc("Specify the filename for the vizualization output"),
+        llvm::cl::value_desc("filename"));
+
+
+
 namespace pcpo {
 
 using namespace llvm;
+using std::ostream;
 using std::vector;
 using std::pair;
 using std::unordered_map;
@@ -336,7 +347,29 @@ void executeFixpointAlgorithm(Module const& M) {
     if (!worklist.empty()) {
         dbgs(0) << "Iteration terminated due to exceeding loop count.\n";
     }
-     
+
+
+    std::ofstream Res(OutputFilename.c_str());
+    unsigned int y=0;
+    if (Res.good()) {
+        dbgs(0) << "Output filename: " << OutputFilename.c_str();
+
+        std::error_code ErrInfo;
+        llvm::raw_fd_ostream Result(OutputFilename.c_str(),ErrInfo,llvm::sys::fs::F_None);
+
+        Result << "{\n";
+        for (auto const& [key, node]:nodes){
+            Result << "  \"" << *node.basic_block << "\"" << ":{\n";
+            node.state.printOutgoing(*node.basic_block,Result,4);
+            Result << "  }" ;
+            if (y++ != nodes.size()-1)
+                Result <<",";
+            Result<<"\n";
+        }
+        Result << "}\n";
+        Result.flush();        
+    }
+
     // Output the final result
     dbgs(0) << "\nFinal result:\n";
     for (auto const& [key, node]: nodes) {
@@ -348,11 +381,10 @@ void executeFixpointAlgorithm(Module const& M) {
 
 bool AbstractInterpretationPass::runOnModule(llvm::Module& M) {
     using AbstractState = AbstractStateValueSet<SimpleInterval>;
-
 //     Use either the standard fixpoint algorithm or the version with widening
-//    executeFixpointAlgorithm<AbstractState>(M);
+    executeFixpointAlgorithm<AbstractState>(M);
 //     executeFixpointAlgorithm<NormalizedConjunction>(M);
-    executeFixpointAlgorithm<LinearSubspace>(M);
+//    executeFixpointAlgorithm<LinearSubspace>(M);
 //    executeFixpointAlgorithmWidening<AbstractState>(M);
 
     // We never change anything

@@ -386,17 +386,20 @@ public:
         }
     }
     void printOutgoing(llvm::BasicBlock const& bb, llvm::raw_ostream& out, int indentation = 0) const {
+        unsigned int j=0;
         for (auto const& i: values) {
             if (llvm::ReturnInst::classof(i.first)) {
-                out.indent(indentation) << "<ret> = " << i.second << '\n';
+                out.indent(indentation) << "\"<ret>\" : \"" << i.second<<"\"";
             } else {
-                out.indent(indentation) << '%' << i.first->getName() << " = " << i.second << '\n';
+                out.indent(indentation) << "\"%" << i.first->getName() << "\" : \"" << i.second << "\"";
             }
+            if(j++ != values.size() -1) out << ",";
+            out <<"\n";
         }
         if (isBottom) {
             out.indent(indentation) << "bottom\n";
         } else if (values.size() == 0) {
-            out.indent(indentation) << "<nothing>\n";
+            //out.indent(indentation) << "<nothing>\n";
         }
     };
     
