@@ -356,17 +356,24 @@ void executeFixpointAlgorithm(Module const& M) {
 
         std::error_code ErrInfo;
         llvm::raw_fd_ostream Result(OutputFilename.c_str(),ErrInfo,llvm::sys::fs::F_None);
-
+        StringRef sofar("");
         Result << "{\n";
         for (auto const& [key, node]:nodes){
-            Result << "  \"" << *node.basic_block << "\"" << ":{\n";
+            StringRef name =  (*node.basic_block).getParent()->getName();
+            
+            if (!sofar.equals(name)) {
+                if (sofar.size()!=0) Result << "},\n";
+                Result << "\""<< name <<"\":{\n";
+                sofar=name;
+            }
+            Result << "  \"" << (*node.basic_block).getName() << "\"" << ":{\n";
             node.state.printOutgoing(*node.basic_block,Result,4);
             Result << "  }" ;
             if (y++ != nodes.size()-1)
                 Result <<",";
             Result<<"\n";
         }
-        Result << "}\n";
+        Result << "}}\n";
         Result.flush();        
     }
 
