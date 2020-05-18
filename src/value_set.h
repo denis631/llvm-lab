@@ -397,7 +397,7 @@ public:
             out <<"\n";
         }
         if (isBottom) {
-            out.indent(indentation) << "bottom\n";
+            out.indent(indentation) << "\"bottom\" : \"\" \n";
         } else if (values.size() == 0) {
             //out.indent(indentation) << "<nothing>\n";
         }
