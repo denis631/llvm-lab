@@ -106,6 +106,7 @@ set(PAIN_SOURCES
   src/normalized_conjunction.cpp
   src/linear_equality.cpp
   src/linear_subspace.cpp
+  src/constant_folding.cpp
 )
 
 set(PAIN_HEADERS
@@ -121,6 +122,7 @@ set(PAIN_HEADERS
   src/linear_subspace.h
   src/simple_matrix.h
   src/sparse_matrix.h
+  src/constant_folding.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
@@ -266,6 +268,7 @@ set(SAMPLES
   switch-3
   switch-two-labels
   switch
+  tmp
   while-1
   while-2
   while-bigger-steps
