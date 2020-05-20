@@ -16,21 +16,33 @@ void ConstantFolding::applyPHINode(
     auto &incoming_value = *phiNode->getIncomingValueForBlock(pred_bb);
     auto &incoming_state = pred_values[i];
 
-    int64_t val = 0;
+    std::optional<int64_t> val = std::nullopt;
 
     if (llvm::ConstantInt const *c =
             llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
-      val = c->getSExtValue();
+      val = std::optional{c->getSExtValue()};
     } else {
-      val = incoming_state.valueToIntMapping.find(&incoming_value)->second;
+      if (incoming_state.valueToIntMapping.count(&incoming_value)) {
+        val = std::optional{
+            incoming_state.valueToIntMapping.find(&incoming_value)->second};
+      }
     }
 
     if (valueToIntMapping.count(&inst)) {
+      if (!val.has_value()) {
+        valueToIntMapping.erase(&inst);
+        return;
+      }
+
       auto acc = *this;
-      acc.valueToIntMapping[&inst] = val;
+      acc.valueToIntMapping[&inst] = val.value();
       merge(Merge_op::UPPER_BOUND, acc);
     } else {
-      valueToIntMapping[&inst] = val;
+      if (!val.has_value()) {
+        continue;
+      }
+
+      valueToIntMapping[&inst] = val.value();
     }
 
     i++;
@@ -100,6 +112,14 @@ void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
     intOp2 = dyn_cast<ConstantInt>(op2)->getSExtValue();
 
     // op->setOperand(0, ConstantInt::get(op1Val->getType(), intOp1));
+  } else {
+    auto op1Val = dyn_cast<Value>(op1);
+    auto op2Val = dyn_cast<Value>(op2);
+    if (!valueToIntMapping.count(op1Val) || !valueToIntMapping.count(op2Val))
+      return;
+
+    intOp1 = valueToIntMapping[op1Val];
+    intOp2 = valueToIntMapping[op2Val];
   }
 
   auto result = apply(inst.getOpcode(), intOp1, intOp2);

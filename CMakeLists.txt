@@ -238,6 +238,8 @@ set(SAMPLES
   add-4
   basic_function
   branching
+  constant-folding-1
+  constant-folding-2
   cmp-two-variables-1
   cmp-two-variables-2
   euler-48
@@ -268,7 +270,6 @@ set(SAMPLES
   switch-3
   switch-two-labels
   switch
-  tmp
   while-1
   while-2
   while-bigger-steps
