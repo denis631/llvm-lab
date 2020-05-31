@@ -12,19 +12,19 @@ void ConstantFolding::applyPHINode(
   PHINode const *phiNode = dyn_cast<PHINode>(&inst);
   int i = 0;
 
-  for (BasicBlock const *pred_bb : llvm::predecessors(&bb)) {
-    auto &incoming_value = *phiNode->getIncomingValueForBlock(pred_bb);
-    auto &incoming_state = pred_values[i];
+  for (BasicBlock const *predBB : llvm::predecessors(&bb)) {
+    auto &incomingValue = *phiNode->getIncomingValueForBlock(predBB);
+    auto &incomingState = pred_values[i];
 
-    std::optional<int64_t> val = std::nullopt;
+    std::optional<uint64_t> val = std::nullopt;
 
     if (llvm::ConstantInt const *c =
-            llvm::dyn_cast<llvm::ConstantInt>(&incoming_value)) {
-      val = std::optional{c->getSExtValue()};
+            llvm::dyn_cast<llvm::ConstantInt>(&incomingValue)) {
+      val = std::optional{c->getZExtValue()};
     } else {
-      if (incoming_state.valueToIntMapping.count(&incoming_value)) {
+      if (incomingState.valueToIntMapping.count(&incomingValue)) {
         val = std::optional{
-            incoming_state.valueToIntMapping.find(&incoming_value)->second};
+            incomingState.valueToIntMapping.find(&incomingValue)->second};
       }
     }
 
@@ -49,6 +49,47 @@ void ConstantFolding::applyPHINode(
   }
 }
 
+bool ConstantFolding::applyPHINode(
+    llvm::BasicBlock const &bb, std::vector<ConstantFolding> const &pred_values,
+    llvm::Instruction &inst) {
+
+  PHINode *phiNode = dyn_cast<PHINode>(&inst);
+  bool hasChanged = false;
+  int i = 0;
+
+  for (BasicBlock const *predBB : llvm::predecessors(&bb)) {
+    auto &incomingValue = *phiNode->getIncomingValueForBlock(predBB);
+    auto &incomingState = pred_values[i];
+
+    if (incomingState.valueToIntMapping.count(&incomingValue)) {
+      auto value = incomingState.valueToIntMapping.at(&incomingValue);
+
+      phiNode->setIncomingValueForBlock(
+          predBB, ConstantInt::get(incomingValue.getType(), value));
+
+      hasChanged = true;
+    }
+
+    i++;
+  }
+
+  return hasChanged;
+} // namespace pcpo
+
+bool ConstantFolding::isValidDefaultOpcode(
+    const llvm::Instruction &inst) const {
+  switch (inst.getOpcode()) {
+  case Instruction::Add:
+  case Instruction::Mul:
+  case Instruction::Sub:
+  case Instruction::ICmp:
+  case Instruction::Br:
+    return true;
+  default:
+    return false;
+  }
+}
+
 void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
   auto apply = [](unsigned int opCode, int a, int b) {
     switch (opCode) {
@@ -65,65 +106,60 @@ void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
     }
   };
 
-  switch (inst.getOpcode()) {
-  case Instruction::Add:
-  case Instruction::Mul:
-  case Instruction::Sub:
-  case Instruction::ICmp:
-    break;
-  default:
+  auto toInt = [this](Value *val) -> std::optional<uint64_t> {
+    // every operand should either be:
+    // - in the hashmap to consts or
+    // - int
+
+    if (isa<ConstantInt>(val)) {
+      return std::optional{dyn_cast<ConstantInt>(val)->getZExtValue()};
+    } else if (valueToIntMapping.count(val)) {
+      return std::optional{valueToIntMapping[val]};
+    } else {
+      return std::nullopt;
+    }
+  };
+
+  if (!isValidDefaultOpcode(inst))
     return;
-  }
 
   // We only deal with integer types
   IntegerType const *type = dyn_cast<IntegerType>(inst.getType());
   if (not type)
     return;
 
-  // every operand should either be:
-  // - in valid variables and in the hashmap to consts or
-  // - int
+  // only binops
+  if (inst.getNumOperands() != 2)
+    return;
 
-  auto op1 = inst.getOperand(0);
-  auto op2 = inst.getOperand(1);
+  auto intOp1 = toInt(inst.getOperand(0));
+  auto intOp2 = toInt(inst.getOperand(1));
 
-  int intOp1 = 0;
-  int intOp2 = 0;
-
-  if (isa<ConstantInt>(op1) && (isa<ConstantInt>(op2))) {
-    intOp1 = dyn_cast<ConstantInt>(op1)->getSExtValue();
-    intOp2 = dyn_cast<ConstantInt>(op2)->getSExtValue();
-  } else if (isa<ConstantInt>(op1) && isa<Value>(op2)) {
-    auto op2Val = dyn_cast<Value>(op2);
-    if (!valueToIntMapping.count(op2Val)) {
-      return;
-    }
-
-    intOp1 = dyn_cast<ConstantInt>(op1)->getSExtValue();
-    intOp2 = valueToIntMapping[op2Val];
-
-    // op->setOperand(1, ConstantInt::get(op2Val->getType(), intOp2));
-  } else if (isa<Value>(op1) && isa<ConstantInt>(op2)) {
-    auto op1Val = dyn_cast<Value>(op1);
-    if (!valueToIntMapping.count(op1Val))
-      return;
-
-    intOp1 = valueToIntMapping[op1Val];
-    intOp2 = dyn_cast<ConstantInt>(op2)->getSExtValue();
-
-    // op->setOperand(0, ConstantInt::get(op1Val->getType(), intOp1));
-  } else {
-    auto op1Val = dyn_cast<Value>(op1);
-    auto op2Val = dyn_cast<Value>(op2);
-    if (!valueToIntMapping.count(op1Val) || !valueToIntMapping.count(op2Val))
-      return;
-
-    intOp1 = valueToIntMapping[op1Val];
-    intOp2 = valueToIntMapping[op2Val];
+  if (!intOp1.has_value() || !intOp2.has_value()) {
+    return;
   }
 
-  auto result = apply(inst.getOpcode(), intOp1, intOp2);
+  auto result = apply(inst.getOpcode(), intOp1.value(), intOp2.value());
   valueToIntMapping[&inst] = result;
+}
+
+bool ConstantFolding::applyDefault(llvm::Instruction &inst) {
+  if (!isValidDefaultOpcode(inst))
+    return false;
+
+  bool hasChanged = false;
+
+  for (int i = 0; i < inst.getNumOperands(); i++) {
+    auto operand = inst.getOperand(i);
+
+    if (valueToIntMapping.count(operand)) {
+      inst.setOperand(
+          i, ConstantInt::get(operand->getType(), valueToIntMapping[operand]));
+      hasChanged = true;
+    }
+  }
+
+  return hasChanged;
 }
 
 bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
@@ -139,7 +175,7 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
     if (op != Merge_op::UPPER_BOUND)
       return false;
 
-    std::unordered_map<Value const *, int> newValueToIntMapping;
+    std::unordered_map<Value const *, uint64_t> newValueToIntMapping;
     std::unordered_set<Value const *> values;
 
     for (auto kv : valueToIntMapping) {

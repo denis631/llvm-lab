@@ -13,7 +13,7 @@ namespace pcpo {
 class ConstantFolding {
 public:
   // TODO: only for ints or also for strings?
-  std::unordered_map<llvm::Value const *, int> valueToIntMapping;
+  std::unordered_map<llvm::Value const *, uint64_t> valueToIntMapping;
   bool isBottom = true;
 
   // This has to initialise the state to bottom.
@@ -49,6 +49,10 @@ public:
                     std::vector<ConstantFolding> const &pred_values,
                     llvm::Instruction const &inst);
 
+  bool applyPHINode(llvm::BasicBlock const &bb,
+                    std::vector<ConstantFolding> const &pred_values,
+                    llvm::Instruction &inst);
+
   // This is the "combine" function as described in "Compiler Design: Analysis
   // and Transformation"
   void applyCallInst(llvm::Instruction const &inst,
@@ -60,7 +64,9 @@ public:
   void applyReturnInst(llvm::Instruction const &inst){};
 
   // Handles all cases different from the three above
+  bool isValidDefaultOpcode(const llvm::Instruction &inst) const;
   void applyDefault(llvm::Instruction const &inst);
+  bool applyDefault(llvm::Instruction &inst);
 
   // This 'merges' two states, which is the operation we do fixpoint
   // iteration over. Currently, there are three possibilities for op:

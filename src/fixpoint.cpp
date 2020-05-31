@@ -22,13 +22,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include <fstream>
-#include "llvm/Support/CommandLine.h"
-static llvm::cl::opt<std::string> 
-    OutputFilename("vo",
-        llvm::cl::desc("Specify the filename for the vizualization output"),
-        llvm::cl::value_desc("filename"));
-
-
+static llvm::cl::opt<std::string> OutputFilename(
+    "vo", llvm::cl::desc("Specify the filename for the vizualization output"),
+    llvm::cl::value_desc("filename"));
 
 namespace pcpo {
 
@@ -38,7 +34,8 @@ using std::pair;
 using std::unordered_map;
 using std::vector;
 
-static llvm::RegisterPass<AbstractInterpretationPass> Y("painpass", "AbstractInterpretation Pass");
+static llvm::RegisterPass<AbstractInterpretationPass>
+    Y("painpass", "AbstractInterpretation Pass");
 
 char AbstractInterpretationPass::ID;
 
@@ -150,7 +147,8 @@ void add_to_worklist(vector<Node<AbstractState> *> &nodes,
 template <typename AbstractState, int iterations_max = 1000,
           int callstack_depth = 1,
           Merge_op::Type merge_op = Merge_op::UPPER_BOUND>
-void executeFixpointAlgorithm(Module const &M) {
+unordered_map<NodeKey, Node<AbstractState>>
+executeFixpointAlgorithm(Module const &M) {
   using Node = Node<AbstractState>;
 
   // A node in the control flow graph, i.e. a basic block. Here, we need a bit
@@ -277,8 +275,8 @@ void executeFixpointAlgorithm(Module const &M) {
             dbgs(3) << "    No information regarding function call %"
                     << call->getCalledFunction()->getName() << "\n";
 
-            callee_basic_blocks = register_function(
-                callee_func, node.callstring, callstack_depth, nodes);
+            callee_basic_blocks =
+                register_function(callee_func, {}, callstack_depth, nodes);
 
             nodes[callee_element].state =
                 AbstractState{callee_func, state_new, call};
@@ -412,19 +410,63 @@ void executeFixpointAlgorithm(Module const &M) {
     dbgs(0) << key << ":\n";
     node.state.printOutgoing(*node.basic_block, dbgs(0), 2);
   }
+
+  return nodes;
 }
+
+template <typename AbstractState>
+bool optimize(
+    llvm::Module &M,
+    const unordered_map<NodeKey, Node<AbstractState>> nodes2AbstractStateNode) {
+  bool hasChanged = false;
+
+  for (auto func = M.begin(); func != M.end(); func++) {
+    for (Function::iterator bb = func->begin(), bbe = func->end(); bb != bbe;
+         ++bb) {
+
+      BasicBlock &tmpBB = *bb;
+      Callstring callstring =
+          callstring_for(M.getFunction(func->getName()), {}, 1);
+
+      NodeKey key = {callstring, &tmpBB};
+      Node<AbstractState> node = nodes2AbstractStateNode.at(key);
+
+      // Collect the predecessors
+      vector<AbstractState> predecessors;
+      for (BasicBlock const *basic_block :
+           llvm::predecessors(node.basic_block)) {
+        AbstractState state_branched{
+            nodes2AbstractStateNode.at({{node.callstring}, basic_block}).state};
+        predecessors.push_back(state_branched);
+      }
+
+      for (Instruction &inst : *bb) {
+        if (isa<PHINode>(inst)) {
+          hasChanged |= node.state.applyPHINode(*bb, predecessors, inst);
+        } else {
+          hasChanged |= node.state.applyDefault(inst);
+        }
+      }
+    }
+  }
+
+  return hasChanged;
+} // namespace pcpo
 
 bool AbstractInterpretationPass::runOnModule(llvm::Module &M) {
   // using AbstractState = AbstractStateValueSet<SimpleInterval>;
-  //     Use either the standard fixpoint algorithm or the version with widening
+  //     Use either the standard fixpoint algorithm or the version with
+  //     widening
   // executeFixpointAlgorithm<AbstractState>(M);
-  executeFixpointAlgorithm<ConstantFolding>(M);
+  auto analysisData = executeFixpointAlgorithm<ConstantFolding>(M);
+  return optimize<ConstantFolding>(M, analysisData);
+
   //     executeFixpointAlgorithm<NormalizedConjunction>(M);
   //    executeFixpointAlgorithm<LinearSubspace>(M);
   //    executeFixpointAlgorithmWidening<AbstractState>(M);
 
   // We never change anything
-  return false;
+  // return false;
 }
 
 void AbstractInterpretationPass::getAnalysisUsage(
