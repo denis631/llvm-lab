@@ -64,7 +64,6 @@ public:
   void applyReturnInst(llvm::Instruction const &inst){};
 
   // Handles all cases different from the three above
-  bool isValidDefaultOpcode(const llvm::Instruction &inst) const;
   void applyDefault(llvm::Instruction const &inst);
   bool applyDefault(llvm::Instruction &inst);
 
@@ -101,6 +100,10 @@ public:
                      int indentation = 0) const {};
   void printOutgoing(llvm::BasicBlock const &bb, llvm::raw_ostream &out,
                      int indentation) const;
-};
 
+  std::optional<uint64_t> toInt(llvm::Value const *val) const;
+
+private:
+  bool isValidDefaultOpcode(const llvm::Instruction &inst) const;
+};
 } // namespace pcpo
