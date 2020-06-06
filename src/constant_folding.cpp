@@ -16,7 +16,7 @@ void ConstantFolding::applyPHINode(
     auto &incomingValue = *phiNode->getIncomingValueForBlock(predBB);
     auto &incomingState = pred_values[i];
 
-    auto val = incomingState.toInt(&incomingValue);
+    auto val = incomingState.getIntForValue(&incomingValue);
 
     if (!val.has_value()) {
       valueToIntMapping.erase(&inst);
@@ -24,9 +24,9 @@ void ConstantFolding::applyPHINode(
     }
 
     if (valueToIntMapping.count(&inst)) {
-      auto otherVal = valueToIntMapping[&inst];
+      auto prevVal = valueToIntMapping[&inst];
 
-      if (val.value() != otherVal) {
+      if (val.value() != prevVal) {
         valueToIntMapping.erase(&inst);
         return;
       }
@@ -43,17 +43,17 @@ bool ConstantFolding::applyPHINode(
 
   PHINode *phiNode = dyn_cast<PHINode>(&inst);
   bool hasChanged = false;
-  int i = 0;
 
+  int i = 0;
   for (BasicBlock const *predBB : llvm::predecessors(&bb)) {
     auto &incomingValue = *phiNode->getIncomingValueForBlock(predBB);
     auto &incomingState = pred_values[i];
 
-    if (incomingState.valueToIntMapping.count(&incomingValue)) {
-      auto value = incomingState.valueToIntMapping.at(&incomingValue);
+    auto opValue = incomingState.getIntForValue(&incomingValue);
+    if (opValue.has_value()) {
 
       phiNode->setIncomingValueForBlock(
-          predBB, ConstantInt::get(incomingValue.getType(), value));
+          predBB, ConstantInt::get(incomingValue.getType(), opValue.value()));
 
       hasChanged = true;
     }
@@ -62,6 +62,18 @@ bool ConstantFolding::applyPHINode(
   }
 
   return hasChanged;
+}
+
+void ConstantFolding::applyCallInst(llvm::Instruction const &inst,
+                                    llvm::BasicBlock const *end_block,
+                                    ConstantFolding const &callee_state) {
+  if (callee_state.returnVal.has_value()) {
+    valueToIntMapping[&inst] = callee_state.returnVal.value();
+  }
+}
+
+void ConstantFolding::applyReturnInst(llvm::Instruction const &inst) {
+  returnVal = getIntForValue(dyn_cast<ReturnInst>(&inst)->getReturnValue());
 }
 
 void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
@@ -92,8 +104,8 @@ void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
   if (inst.getNumOperands() != 2)
     return;
 
-  auto intOp1 = toInt(inst.getOperand(0));
-  auto intOp2 = toInt(inst.getOperand(1));
+  auto intOp1 = getIntForValue(inst.getOperand(0));
+  auto intOp2 = getIntForValue(inst.getOperand(1));
 
   if (!intOp1.has_value() || !intOp2.has_value()) {
     return;
@@ -111,10 +123,10 @@ bool ConstantFolding::applyDefault(llvm::Instruction &inst) {
 
   for (int i = 0; i < inst.getNumOperands(); i++) {
     auto operand = inst.getOperand(i);
+    auto opValue = getIntForValue(operand);
 
-    if (valueToIntMapping.count(operand)) {
-      inst.setOperand(
-          i, ConstantInt::get(operand->getType(), valueToIntMapping[operand]));
+    if (opValue.has_value()) {
+      inst.setOperand(i, ConstantInt::get(operand->getType(), opValue.value()));
       hasChanged = true;
     }
   }
@@ -127,6 +139,8 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
     return false;
   } else if (isBottom && !other.isBottom) {
     valueToIntMapping = other.valueToIntMapping;
+    argsToIntMapping = other.argsToIntMapping;
+    returnVal = other.returnVal;
     isBottom = false;
     return true;
   } else if (!isBottom && other.isBottom) {
@@ -135,39 +149,89 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
     if (op != Merge_op::UPPER_BOUND)
       return false;
 
-    std::unordered_map<Value const *, uint64_t> newValueToIntMapping;
-    std::unordered_set<Value const *> values;
+    dbgs(3) << "--------------------------\n";
+    dbgs(3) << "LHS: \n";
+    printVariableMappings(dbgs(3));
+    dbgs(3) << "RHS: \n";
+    other.printVariableMappings(dbgs(3));
+    dbgs(3) << "--------------------------\n";
 
-    for (auto kv : valueToIntMapping) {
-      values.insert(kv.first);
-    }
-    for (auto kv : other.valueToIntMapping) {
-      values.insert(kv.first);
-    }
+    auto lub = [](std::unordered_map<Value const *, uint64_t> a,
+                  std::unordered_map<Value const *, uint64_t> b) {
+      std::unordered_set<Value const *> values;
+      std::unordered_map<Value const *, uint64_t> result;
 
-    for (auto val : values) {
-      if (valueToIntMapping.count(val) && other.valueToIntMapping.count(val)) {
-        auto a = valueToIntMapping.at(val);
-        auto b = other.valueToIntMapping.at(val);
+      for (auto kv : a) {
+        values.insert(kv.first);
+      }
+      for (auto kv : b) {
+        values.insert(kv.first);
+      }
 
-        if (a == b) {
-          newValueToIntMapping[val] = a;
+      for (auto val : values) {
+        if (a.count(val) && b.count(val)) {
+          auto x = a.at(val);
+          auto y = b.at(val);
+
+          if (x == y) {
+            result[val] = x;
+          }
         }
       }
+
+      return result;
+    };
+
+    auto newValueToIntMapping = lub(valueToIntMapping, other.valueToIntMapping);
+    auto newArgsToIntMapping = lub(argsToIntMapping, other.argsToIntMapping);
+    std::optional<uint64_t> newReturnVal = std::nullopt;
+
+    if (returnVal.has_value() && other.returnVal.has_value()) {
+      newReturnVal = returnVal.value() == other.returnVal.value()
+                         ? returnVal
+                         : std::nullopt;
     }
 
-    bool hasChanged = valueToIntMapping != newValueToIntMapping;
+    bool hasChanged = valueToIntMapping != newValueToIntMapping ||
+                      argsToIntMapping != newArgsToIntMapping ||
+                      returnVal != newReturnVal;
+
     valueToIntMapping = newValueToIntMapping;
+    argsToIntMapping = newArgsToIntMapping;
+    returnVal = newReturnVal;
+
     return hasChanged;
   }
+} // namespace pcpo
+
+void ConstantFolding::printVariableMappings(llvm::raw_ostream &out) const {
+  out << "stored var mappings:\n";
+
+  for (const auto &[key, value] : argsToIntMapping) {
+    out << key << ' ' << '%' << key->getName() << " = " << value << '\n';
+  }
+
+  for (const auto &[key, value] : valueToIntMapping) {
+    out << key << ' ' << '%' << key->getName() << " = " << value << '\n';
+  }
+
+  out << "return = "
+      << (returnVal.has_value() ? std::to_string(returnVal.value()) : "???")
+      << '\n';
+
+  out << "---\n";
+}
+
+void ConstantFolding::printIncoming(llvm::BasicBlock const &bb,
+                                    llvm::raw_ostream &out,
+                                    int indentation) const {
+  printVariableMappings(out);
 }
 
 void ConstantFolding::printOutgoing(const llvm::BasicBlock &bb,
                                     llvm::raw_ostream &out,
                                     int indentation = 0) const {
-  for (const auto &[key, value] : valueToIntMapping) {
-    out << '%' << key->getName() << " = " << value << '\n';
-  }
+  printVariableMappings(out);
 }
 
 bool ConstantFolding::isValidDefaultOpcode(
@@ -178,19 +242,24 @@ bool ConstantFolding::isValidDefaultOpcode(
   case Instruction::Sub:
   case Instruction::ICmp:
   case Instruction::Br:
+  case Instruction::Ret:
     return true;
   default:
     return false;
   }
 }
 
-std::optional<uint64_t> ConstantFolding::toInt(Value const *val) const {
+std::optional<uint64_t>
+ConstantFolding::getIntForValue(Value const *val) const {
   // every operand should either be:
   // - int
-  // - in the hashmap to consts or
+  // - in args map
+  // - in variables map
 
   if (isa<ConstantInt>(val)) {
     return std::optional{dyn_cast<ConstantInt>(val)->getZExtValue()};
+  } else if (argsToIntMapping.count(val)) {
+    return std::optional{argsToIntMapping.at(val)};
   } else if (valueToIntMapping.count(val)) {
     return std::optional{valueToIntMapping.at(val)};
   } else {

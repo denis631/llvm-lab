@@ -1,6 +1,7 @@
 #pragma once
 
 #include "llvm/IR/CFG.h"
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -12,8 +13,9 @@ namespace pcpo {
 
 class ConstantFolding {
 public:
-  // TODO: only for ints or also for strings?
+  std::unordered_map<llvm::Value const *, uint64_t> argsToIntMapping;
   std::unordered_map<llvm::Value const *, uint64_t> valueToIntMapping;
+  std::optional<uint64_t> returnVal = std::nullopt;
   bool isBottom = true;
 
   // This has to initialise the state to bottom.
@@ -34,7 +36,18 @@ public:
   // Transformation"
   explicit ConstantFolding(llvm::Function const *callee_func,
                            ConstantFolding const &state,
-                           llvm::CallInst const *call) {}
+                           llvm::CallInst const *call) {
+
+    int i = 0;
+    for (auto it = call->arg_begin(); it != call->arg_end(); it++) {
+      auto x = state.getIntForValue(*it);
+
+      if (x.has_value()) {
+        argsToIntMapping[callee_func->getArg(i)] = x.value();
+      }
+      i++;
+    }
+  }
 
   // Apply functions apply the changes needed to reflect executing the
   // instructions in the basic block. Before this operation is called, the state
@@ -57,11 +70,11 @@ public:
   // and Transformation"
   void applyCallInst(llvm::Instruction const &inst,
                      llvm::BasicBlock const *end_block,
-                     ConstantFolding const &callee_state){};
+                     ConstantFolding const &callee_state);
 
   // Evaluates return instructions, needed for the main function and the debug
   // output
-  void applyReturnInst(llvm::Instruction const &inst){};
+  void applyReturnInst(llvm::Instruction const &inst);
 
   // Handles all cases different from the three above
   void applyDefault(llvm::Instruction const &inst);
@@ -97,11 +110,13 @@ public:
   bool checkOperandsForBottom(llvm::Instruction const &inst) { return false; }
 
   void printIncoming(llvm::BasicBlock const &bb, llvm::raw_ostream &out,
-                     int indentation = 0) const {};
+                     int indentation = 0) const;
   void printOutgoing(llvm::BasicBlock const &bb, llvm::raw_ostream &out,
                      int indentation) const;
 
-  std::optional<uint64_t> toInt(llvm::Value const *val) const;
+  std::optional<uint64_t> getIntForValue(llvm::Value const *val) const;
+
+  void printVariableMappings(llvm::raw_ostream &out) const;
 
 private:
   bool isValidDefaultOpcode(const llvm::Instruction &inst) const;

@@ -46,8 +46,7 @@ using NodeKey = pair<Callstring, BasicBlock const *>;
 
 // MARK: - To String
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
-                              BasicBlock const &basic_block) {
+template <typename T> T &operator<<(T &os, BasicBlock const &basic_block) {
   os << "%";
   if (llvm::Function const *f = basic_block.getParent()) {
     os << f->getName() << ".";
@@ -55,10 +54,9 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
   return os << basic_block.getName();
 }
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
-                              Callstring const &callstring) {
+template <typename T> T &operator<<(T &os, Callstring const &callstring) {
   for (auto call : callstring) {
-    os << call->getName();
+    os << std::string(call->getName());
     if (call != callstring.back()) {
       os << " -> ";
     }
@@ -66,7 +64,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
   return os;
 }
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &os, NodeKey const &key) {
+template <typename T> T &operator<<(T &os, NodeKey const &key) {
   return os << "[" << *key.second << "," << key.first << "]";
 }
 
@@ -275,8 +273,8 @@ executeFixpointAlgorithm(Module const &M) {
             dbgs(3) << "    No information regarding function call %"
                     << call->getCalledFunction()->getName() << "\n";
 
-            callee_basic_blocks =
-                register_function(callee_func, {}, callstack_depth, nodes);
+            callee_basic_blocks = register_function(
+                callee_func, node.callstring, callstack_depth, nodes);
 
             nodes[callee_element].state =
                 AbstractState{callee_func, state_new, call};
@@ -424,27 +422,36 @@ bool optimize(
     for (Function::iterator bb = func->begin(), bbe = func->end(); bb != bbe;
          ++bb) {
 
-      BasicBlock &tmpBB = *bb;
+      BasicBlock const &tmpBB = *bb;
       Callstring callstring =
           callstring_for(M.getFunction(func->getName()), {}, 1);
 
       NodeKey key = {callstring, &tmpBB};
-      Node<AbstractState> node = nodes2AbstractStateNode.at(key);
+
+      auto acc = AbstractState();
+
+      for (const auto &[nodeKey, nodeState] : nodes2AbstractStateNode) {
+        if (nodeKey.second == &tmpBB) {
+          acc.merge(Merge_op::UPPER_BOUND, nodeState.state);
+        }
+      }
 
       // Collect the predecessors
       vector<AbstractState> predecessors;
-      for (BasicBlock const *basic_block :
-           llvm::predecessors(node.basic_block)) {
-        AbstractState state_branched{
-            nodes2AbstractStateNode.at({{node.callstring}, basic_block}).state};
-        predecessors.push_back(state_branched);
+      for (BasicBlock const *basic_block : llvm::predecessors(&tmpBB)) {
+        for (const auto &[nodeKey, nodeState] : nodes2AbstractStateNode) {
+          if (nodeKey.second == basic_block) {
+            AbstractState state_branched{nodeState.state};
+            predecessors.push_back(state_branched);
+          }
+        }
       }
 
       for (Instruction &inst : *bb) {
         if (isa<PHINode>(inst)) {
-          hasChanged |= node.state.applyPHINode(*bb, predecessors, inst);
+          hasChanged |= acc.applyPHINode(*bb, predecessors, inst);
         } else {
-          hasChanged |= node.state.applyDefault(inst);
+          hasChanged |= acc.applyDefault(inst);
         }
       }
     }
