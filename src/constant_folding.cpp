@@ -135,8 +135,48 @@ bool ConstantFolding::applyDefault(llvm::Instruction &inst) {
 }
 
 bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
+  auto lub = [](std::unordered_map<Value const *, uint64_t> a,
+                std::unordered_map<Value const *, uint64_t> b) {
+    std::unordered_set<Value const *> values;
+    std::unordered_map<Value const *, uint64_t> result;
+
+    for (auto kv : a) {
+      values.insert(kv.first);
+    }
+    for (auto kv : b) {
+      values.insert(kv.first);
+    }
+
+    for (auto val : values) {
+      if (a.count(val) && b.count(val)) {
+        auto x = a.at(val);
+        auto y = b.at(val);
+
+        if (x == y) {
+          result[val] = x;
+        }
+      }
+    }
+
+    return result;
+  };
+
   if (isBottom && other.isBottom) {
-    return false;
+    // passing params from previous state
+    bool hasChanged;
+
+    if (other.justArgumentHolder) {
+      if (justArgumentHolder) {
+        auto tmp = lub(argsToIntMapping, other.argsToIntMapping);
+        hasChanged = tmp == argsToIntMapping;
+        argsToIntMapping = tmp;
+      } else {
+        hasChanged = argsToIntMapping == other.argsToIntMapping;
+        argsToIntMapping = other.argsToIntMapping;
+      }
+    }
+
+    return hasChanged;
   } else if (isBottom && !other.isBottom) {
     valueToIntMapping = other.valueToIntMapping;
     argsToIntMapping = other.argsToIntMapping;
@@ -148,39 +188,6 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
   } else if (!isBottom && !other.isBottom) {
     if (op != Merge_op::UPPER_BOUND)
       return false;
-
-    dbgs(3) << "--------------------------\n";
-    dbgs(3) << "LHS: \n";
-    printVariableMappings(dbgs(3));
-    dbgs(3) << "RHS: \n";
-    other.printVariableMappings(dbgs(3));
-    dbgs(3) << "--------------------------\n";
-
-    auto lub = [](std::unordered_map<Value const *, uint64_t> a,
-                  std::unordered_map<Value const *, uint64_t> b) {
-      std::unordered_set<Value const *> values;
-      std::unordered_map<Value const *, uint64_t> result;
-
-      for (auto kv : a) {
-        values.insert(kv.first);
-      }
-      for (auto kv : b) {
-        values.insert(kv.first);
-      }
-
-      for (auto val : values) {
-        if (a.count(val) && b.count(val)) {
-          auto x = a.at(val);
-          auto y = b.at(val);
-
-          if (x == y) {
-            result[val] = x;
-          }
-        }
-      }
-
-      return result;
-    };
 
     auto newValueToIntMapping = lub(valueToIntMapping, other.valueToIntMapping);
     auto newArgsToIntMapping = lub(argsToIntMapping, other.argsToIntMapping);
@@ -205,6 +212,7 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
 } // namespace pcpo
 
 void ConstantFolding::printVariableMappings(llvm::raw_ostream &out) const {
+  out << "state is bottom ? " << (isBottom ? "YES" : "NO") << '\n';
   out << "stored var mappings:\n";
 
   for (const auto &[key, value] : argsToIntMapping) {

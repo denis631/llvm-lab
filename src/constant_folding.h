@@ -17,6 +17,7 @@ public:
   std::unordered_map<llvm::Value const *, uint64_t> valueToIntMapping;
   std::optional<uint64_t> returnVal = std::nullopt;
   bool isBottom = true;
+  bool justArgumentHolder = false;
 
   // This has to initialise the state to bottom.
   ConstantFolding() = default;
@@ -37,7 +38,6 @@ public:
   explicit ConstantFolding(llvm::Function const *callee_func,
                            ConstantFolding const &state,
                            llvm::CallInst const *call) {
-
     int i = 0;
     for (auto it = call->arg_begin(); it != call->arg_end(); it++) {
       auto x = state.getIntForValue(*it);
@@ -47,6 +47,7 @@ public:
       }
       i++;
     }
+    justArgumentHolder = true;
   }
 
   // Apply functions apply the changes needed to reflect executing the
