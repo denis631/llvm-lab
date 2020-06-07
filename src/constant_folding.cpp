@@ -77,8 +77,8 @@ void ConstantFolding::applyReturnInst(llvm::Instruction const &inst) {
 }
 
 void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
-  auto apply = [](unsigned int opCode, int a, int b) {
-    switch (opCode) {
+  auto apply = [&inst](int a, int b) {
+    switch (inst.getOpcode()) {
     case Instruction::Add:
       return a + b;
     case Instruction::Mul:
@@ -86,10 +86,33 @@ void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
     case Instruction::Sub:
       return a - b;
     case Instruction::ICmp:
-      return int(a == b);
-    default:
-      return -1;
+      auto cmp = dyn_cast<ICmpInst>(&inst);
+
+      switch (cmp->getPredicate()) {
+      case CmpInst::Predicate::ICMP_EQ:
+        return int(a == b);
+      case CmpInst::Predicate::ICMP_NE:
+        return int(a != b);
+      case CmpInst::Predicate::ICMP_UGT:
+        return int(a > b);
+      case CmpInst::Predicate::ICMP_UGE:
+        return int(a >= b);
+      case CmpInst::Predicate::ICMP_ULT:
+        return int(a < b);
+      case CmpInst::Predicate::ICMP_ULE:
+        return int(a <= b);
+      case CmpInst::Predicate::ICMP_SGT:
+        return int(a > b);
+      case CmpInst::Predicate::ICMP_SGE:
+        return int(a >= b);
+      case CmpInst::Predicate::ICMP_SLT:
+        return int(a < b);
+      case CmpInst::Predicate::ICMP_SLE:
+        return int(a <= b);
+      };
     }
+
+    assert(false);
   };
 
   if (!isValidDefaultOpcode(inst))
@@ -111,7 +134,7 @@ void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
     return;
   }
 
-  auto result = apply(inst.getOpcode(), intOp1.value(), intOp2.value());
+  auto result = apply(intOp1.value(), intOp2.value());
   valueToIntMapping[&inst] = result;
 }
 
