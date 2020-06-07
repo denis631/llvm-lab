@@ -13,7 +13,6 @@ namespace pcpo {
 
 class ConstantFolding {
 public:
-  std::unordered_map<llvm::Value const *, uint64_t> argsToIntMapping;
   std::unordered_map<llvm::Value const *, uint64_t> valueToIntMapping;
   std::optional<uint64_t> returnVal = std::nullopt;
   bool isBottom = true;
@@ -43,7 +42,7 @@ public:
       auto x = state.getIntForValue(*it);
 
       if (x.has_value()) {
-        argsToIntMapping[callee_func->getArg(i)] = x.value();
+        valueToIntMapping[callee_func->getArg(i)] = x.value();
       }
       i++;
     }

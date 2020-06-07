@@ -190,19 +190,23 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
 
     if (other.justArgumentHolder) {
       if (justArgumentHolder) {
-        auto tmp = lub(argsToIntMapping, other.argsToIntMapping);
-        hasChanged = tmp == argsToIntMapping;
-        argsToIntMapping = tmp;
+        // in case when both calls didn't execute
+        // f(4,5)
+        // f(5,5)
+        auto tmp = lub(valueToIntMapping, other.valueToIntMapping);
+        hasChanged = tmp == valueToIntMapping;
+        valueToIntMapping = tmp;
       } else {
-        hasChanged = argsToIntMapping == other.argsToIntMapping;
-        argsToIntMapping = other.argsToIntMapping;
+        // in case when one is a new state and the other is arg holder
+        // (function call, but not executed)
+        hasChanged = valueToIntMapping == other.valueToIntMapping;
+        valueToIntMapping = other.valueToIntMapping;
       }
     }
 
     return hasChanged;
   } else if (isBottom && !other.isBottom) {
     valueToIntMapping = other.valueToIntMapping;
-    argsToIntMapping = other.argsToIntMapping;
     returnVal = other.returnVal;
     isBottom = false;
     return true;
@@ -213,7 +217,6 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
       return false;
 
     auto newValueToIntMapping = lub(valueToIntMapping, other.valueToIntMapping);
-    auto newArgsToIntMapping = lub(argsToIntMapping, other.argsToIntMapping);
     std::optional<uint64_t> newReturnVal = std::nullopt;
 
     if (returnVal.has_value() && other.returnVal.has_value()) {
@@ -222,12 +225,10 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
                          : std::nullopt;
     }
 
-    bool hasChanged = valueToIntMapping != newValueToIntMapping ||
-                      argsToIntMapping != newArgsToIntMapping ||
-                      returnVal != newReturnVal;
+    bool hasChanged =
+        valueToIntMapping != newValueToIntMapping || returnVal != newReturnVal;
 
     valueToIntMapping = newValueToIntMapping;
-    argsToIntMapping = newArgsToIntMapping;
     returnVal = newReturnVal;
 
     return hasChanged;
@@ -237,10 +238,6 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
 void ConstantFolding::printVariableMappings(llvm::raw_ostream &out) const {
   out << "state is bottom ? " << (isBottom ? "YES" : "NO") << '\n';
   out << "stored var mappings:\n";
-
-  for (const auto &[key, value] : argsToIntMapping) {
-    out << key << ' ' << '%' << key->getName() << " = " << value << '\n';
-  }
 
   for (const auto &[key, value] : valueToIntMapping) {
     out << key << ' ' << '%' << key->getName() << " = " << value << '\n';
@@ -284,13 +281,10 @@ std::optional<uint64_t>
 ConstantFolding::getIntForValue(Value const *val) const {
   // every operand should either be:
   // - int
-  // - in args map
   // - in variables map
 
   if (isa<ConstantInt>(val)) {
     return std::optional{dyn_cast<ConstantInt>(val)->getZExtValue()};
-  } else if (argsToIntMapping.count(val)) {
-    return std::optional{argsToIntMapping.at(val)};
   } else if (valueToIntMapping.count(val)) {
     return std::optional{valueToIntMapping.at(val)};
   } else {
