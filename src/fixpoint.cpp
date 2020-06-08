@@ -9,6 +9,7 @@
 #include "global.h"
 
 #include "constant_folding.h"
+#include "integer_domain.h"
 #include "linear_subspace.h"
 #include "normalized_conjunction.h"
 #include "simple_interval.h"
@@ -449,9 +450,9 @@ bool optimize(
 
       for (Instruction &inst : *bb) {
         if (isa<PHINode>(inst)) {
-          hasChanged |= acc.applyPHINode(*bb, predecessors, inst);
+          hasChanged |= acc.transformPHINode(*bb, predecessors, inst);
         } else {
-          hasChanged |= acc.applyDefault(inst);
+          hasChanged |= acc.transformDefault(inst);
         }
       }
     }
@@ -465,8 +466,9 @@ bool AbstractInterpretationPass::runOnModule(llvm::Module &M) {
   //     Use either the standard fixpoint algorithm or the version with
   //     widening
   // executeFixpointAlgorithm<AbstractState>(M);
-  auto analysisData = executeFixpointAlgorithm<ConstantFolding>(M);
-  return optimize<ConstantFolding>(M, analysisData);
+  auto analysisData =
+      executeFixpointAlgorithm<ConstantFolding<IntegerDomain>>(M);
+  return optimize<ConstantFolding<IntegerDomain>>(M, analysisData);
 
   //     executeFixpointAlgorithm<NormalizedConjunction>(M);
   //    executeFixpointAlgorithm<LinearSubspace>(M);

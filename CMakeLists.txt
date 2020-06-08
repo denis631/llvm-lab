@@ -102,16 +102,17 @@ set(PAIN_SOURCES
   src/fixpoint.cpp
   src/fixpoint_widening.cpp
   src/value_set.cpp
+  src/integer_domain.cpp
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
   src/linear_equality.cpp
   src/linear_subspace.cpp
-  src/constant_folding.cpp
 )
 
 set(PAIN_HEADERS
   src/fixpoint.h
   src/value_set.h
+  src/integer_domain.h
   src/simple_interval.h
   src/normalized_conjunction.h
   src/linear_equality.h
