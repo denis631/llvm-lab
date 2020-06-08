@@ -77,40 +77,47 @@ void ConstantFolding::applyReturnInst(llvm::Instruction const &inst) {
 }
 
 void ConstantFolding::applyDefault(const llvm::Instruction &inst) {
-  auto apply = [&inst](int a, int b) {
+  auto apply = [&inst](APInt a, APInt b) {
+    bool overflown = false;
+    APInt res;
+
+#define BIN_CASE(opcode, func)                                                 \
+  case Instruction::BinaryOps::opcode:                                         \
+    res = a.func(b, overflown);                                                \
+    if (overflown) {                                                           \
+      dbgs(4) << "overflow detected!\n";                                       \
+    }                                                                          \
+    return res;
+
+#define CMP_CASE(pred, f)                                                      \
+  case CmpInst::Predicate::pred:                                               \
+    return APInt(1, a.f(b));
+
     switch (inst.getOpcode()) {
-    case Instruction::Add:
-      return a + b;
-    case Instruction::Mul:
-      return a * b;
-    case Instruction::Sub:
-      return a - b;
+      BIN_CASE(Add, sadd_ov)
+      BIN_CASE(Sub, ssub_ov)
+      BIN_CASE(Mul, smul_ov)
+      BIN_CASE(SDiv, sdiv_ov)
+
     case Instruction::ICmp:
       auto cmp = dyn_cast<ICmpInst>(&inst);
 
       switch (cmp->getPredicate()) {
-      case CmpInst::Predicate::ICMP_EQ:
-        return int(a == b);
-      case CmpInst::Predicate::ICMP_NE:
-        return int(a != b);
-      case CmpInst::Predicate::ICMP_UGT:
-        return int(a > b);
-      case CmpInst::Predicate::ICMP_UGE:
-        return int(a >= b);
-      case CmpInst::Predicate::ICMP_ULT:
-        return int(a < b);
-      case CmpInst::Predicate::ICMP_ULE:
-        return int(a <= b);
-      case CmpInst::Predicate::ICMP_SGT:
-        return int(a > b);
-      case CmpInst::Predicate::ICMP_SGE:
-        return int(a >= b);
-      case CmpInst::Predicate::ICMP_SLT:
-        return int(a < b);
-      case CmpInst::Predicate::ICMP_SLE:
-        return int(a <= b);
+        CMP_CASE(ICMP_EQ, eq)
+        CMP_CASE(ICMP_NE, ne)
+        CMP_CASE(ICMP_UGT, ugt)
+        CMP_CASE(ICMP_UGE, uge)
+        CMP_CASE(ICMP_ULT, ult)
+        CMP_CASE(ICMP_ULE, ule)
+        CMP_CASE(ICMP_SGT, sgt)
+        CMP_CASE(ICMP_SGE, sge)
+        CMP_CASE(ICMP_SLT, slt)
+        CMP_CASE(ICMP_SLE, sle)
       };
     }
+
+#undef BIN_CASE
+#undef CMP_CASE
 
     assert(false);
   };
@@ -158,10 +165,10 @@ bool ConstantFolding::applyDefault(llvm::Instruction &inst) {
 }
 
 bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
-  auto lub = [](std::unordered_map<Value const *, uint64_t> a,
-                std::unordered_map<Value const *, uint64_t> b) {
+  auto lub = [](std::unordered_map<Value const *, APInt> a,
+                std::unordered_map<Value const *, APInt> b) {
     std::unordered_set<Value const *> values;
-    std::unordered_map<Value const *, uint64_t> result;
+    std::unordered_map<Value const *, APInt> result;
 
     for (auto kv : a) {
       values.insert(kv.first);
@@ -217,7 +224,7 @@ bool ConstantFolding::merge(Merge_op::Type op, ConstantFolding const &other) {
       return false;
 
     auto newValueToIntMapping = lub(valueToIntMapping, other.valueToIntMapping);
-    std::optional<uint64_t> newReturnVal = std::nullopt;
+    std::optional<APInt> newReturnVal = std::nullopt;
 
     if (returnVal.has_value() && other.returnVal.has_value()) {
       newReturnVal = returnVal.value() == other.returnVal.value()
@@ -244,7 +251,7 @@ void ConstantFolding::printVariableMappings(llvm::raw_ostream &out) const {
   }
 
   out << "return = "
-      << (returnVal.has_value() ? std::to_string(returnVal.value()) : "???")
+      << (returnVal.has_value() ? returnVal.value().toString(10, true) : "???")
       << '\n';
 
   out << "---\n";
@@ -277,14 +284,13 @@ bool ConstantFolding::isValidDefaultOpcode(
   }
 }
 
-std::optional<uint64_t>
-ConstantFolding::getIntForValue(Value const *val) const {
+std::optional<APInt> ConstantFolding::getIntForValue(Value const *val) const {
   // every operand should either be:
   // - int
   // - in variables map
 
   if (isa<ConstantInt>(val)) {
-    return std::optional{dyn_cast<ConstantInt>(val)->getZExtValue()};
+    return std::optional{dyn_cast<ConstantInt>(val)->getValue()};
   } else if (valueToIntMapping.count(val)) {
     return std::optional{valueToIntMapping.at(val)};
   } else {

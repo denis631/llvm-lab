@@ -13,8 +13,8 @@ namespace pcpo {
 
 class ConstantFolding {
 public:
-  std::unordered_map<llvm::Value const *, uint64_t> valueToIntMapping;
-  std::optional<uint64_t> returnVal = std::nullopt;
+  std::unordered_map<llvm::Value const *, llvm::APInt> valueToIntMapping;
+  std::optional<llvm::APInt> returnVal = std::nullopt;
   bool isBottom = true;
   bool justArgumentHolder = false;
 
@@ -114,7 +114,7 @@ public:
   void printOutgoing(llvm::BasicBlock const &bb, llvm::raw_ostream &out,
                      int indentation) const;
 
-  std::optional<uint64_t> getIntForValue(llvm::Value const *val) const;
+  std::optional<llvm::APInt> getIntForValue(llvm::Value const *val) const;
 
   void printVariableMappings(llvm::raw_ostream &out) const;
 
