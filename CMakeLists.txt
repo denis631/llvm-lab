@@ -103,6 +103,7 @@ set(PAIN_SOURCES
   src/fixpoint_widening.cpp
   src/value_set.cpp
   src/integer_domain.cpp
+  src/instruction_domain.cpp
   src/simple_interval.cpp
   src/normalized_conjunction.cpp
   src/linear_equality.cpp
@@ -113,6 +114,7 @@ set(PAIN_HEADERS
   src/fixpoint.h
   src/value_set.h
   src/integer_domain.h
+  src/instruction_domain.h
   src/simple_interval.h
   src/normalized_conjunction.h
   src/linear_equality.h
@@ -124,6 +126,7 @@ set(PAIN_HEADERS
   src/simple_matrix.h
   src/sparse_matrix.h
   src/constant_folding.h
+  src/removing_superfluous_computations.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
@@ -237,6 +240,7 @@ set(SAMPLES
   add-2
   add-3
   add-4
+  available-exprs-1
   basic_function
   branching
   constant-folding-1

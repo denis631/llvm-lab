@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Module.h"
 
@@ -12,6 +13,7 @@
 #include "integer_domain.h"
 #include "linear_subspace.h"
 #include "normalized_conjunction.h"
+#include "removing_superfluous_computations.h"
 #include "simple_interval.h"
 #include "value_set.h"
 
@@ -418,6 +420,7 @@ bool optimize(
     llvm::Module &M,
     const unordered_map<NodeKey, Node<AbstractState>> nodes2AbstractStateNode) {
   bool hasChanged = false;
+  std::unordered_set<llvm::Value *> seenValues;
 
   for (auto func = M.begin(); func != M.end(); func++) {
     for (Function::iterator bb = func->begin(), bbe = func->end(); bb != bbe;
@@ -452,7 +455,10 @@ bool optimize(
         if (isa<PHINode>(inst)) {
           hasChanged |= acc.transformPHINode(*bb, predecessors, inst);
         } else {
-          hasChanged |= acc.transformDefault(inst);
+          auto flag = acc.transformDefault(inst, seenValues);
+          hasChanged |= flag;
+          if (not flag)
+            seenValues.insert(&inst);
         }
       }
     }
@@ -467,8 +473,8 @@ bool AbstractInterpretationPass::runOnModule(llvm::Module &M) {
   //     widening
   // executeFixpointAlgorithm<AbstractState>(M);
   auto analysisData =
-      executeFixpointAlgorithm<ConstantFolding<IntegerDomain>>(M);
-  return optimize<ConstantFolding<IntegerDomain>>(M, analysisData);
+      executeFixpointAlgorithm<RemovingSuperfluousComputations>(M);
+  return optimize<RemovingSuperfluousComputations>(M, analysisData);
 
   //     executeFixpointAlgorithm<NormalizedConjunction>(M);
   //    executeFixpointAlgorithm<LinearSubspace>(M);
