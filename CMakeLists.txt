@@ -99,8 +99,9 @@ else()
 endif()
 
 set(PAIN_SOURCES
-  src/fixpoint.cpp
+  # src/fixpoint.cpp
   src/fixpoint_widening.cpp
+  src/reverse_fixpoint.cpp
   src/value_set.cpp
   src/integer_domain.cpp
   src/instruction_domain.cpp
@@ -108,6 +109,7 @@ set(PAIN_SOURCES
   src/normalized_conjunction.cpp
   src/linear_equality.cpp
   src/linear_subspace.cpp
+  src/true_liveness.cpp
 )
 
 set(PAIN_HEADERS
@@ -127,6 +129,7 @@ set(PAIN_HEADERS
   src/sparse_matrix.h
   src/constant_folding.h
   src/removing_superfluous_computations.h
+  src/true_liveness.h
 )
 
 include_directories(${LLVM_INCLUDE_DIRS})
@@ -275,6 +278,7 @@ set(SAMPLES
   switch-3
   switch-two-labels
   switch
+  true-liveness-1
   while-1
   while-2
   while-bigger-steps
